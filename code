@@ -1,0 +1,2024 @@
+variables
+{
+	global:
+		0: BloodhoundAbility
+		1: BloodhoundUltimate
+		2: BangaloreAbility
+		3: BangaloreUltimate
+		4: BangalorePassive
+		5: WraithAbility
+		6: WraithUltimate
+		7: GibraltarAbility
+		8: GibraltarUltimate
+		9: LifelineAbility
+		10: LifelineUltimate
+		11: LifelinePassive
+		12: PathfinderAbility
+		13: PathfinderUltimate
+		14: BangaloreSmokeDuration
+		15: DimensionalRiftDuration
+		16: DOCDuration
+		17: UltimateGenerationType
+		18: LegendPerHero
+		20: ReplaceAbility1WithSprint
+		21: SprintIncrease
+		22: SonarAngle
+		24: ZiplineMeters
+		26: GrappleRange
+		27: Team1HeroPickLoc
+		28: Team2HeroPickLoc
+
+	player:
+		0: ChosenLegend
+		1: UsedAbility
+		2: SonarAbility
+		3: SonarFiltered
+		4: SonarLocations
+		5: UsingUlt
+		6: UltTimer
+		7: LegendAbilityName
+		8: LegendUltName
+		9: LegendPassiveName
+		10: PlayerArmor
+		11: PlayerHealth
+		15: UltimateIcon
+		16: PortalLocations
+		17: PortalOrb
+		18: UltIcon
+		19: Damage
+		20: Ammo
+		21: MaxAmmo
+		22: LastEffectPhase
+		23: AbilityLocation
+		24: BombardmentLocation
+		25: Array_I
+		26: IsGrappleable
+		27: GrappleTarget
+		28: GrappleOffset
+		29: GrappleEndpoint
+		30: GrappleBeam
+		31: SmokeEffects
+		32: SmokeLocations
+		33: AbilityActive
+		34: UltActive
+		35: PassiveActive
+		36: UsingPassive
+		37: PassiveLocation
+		38: RangeChange
+		39: AbilityIcon
+		40: UltimateGen
+		41: UltimateIncrease
+		42: AbilityCooldown
+		43: LastHero
+		44: Zipline
+		45: ZiplineBeam
+		46: ZiplineEffects
+		47: BombardmentLastCreated
+}
+
+subroutines
+{
+	0: HUD
+	1: LegendInfoHUD
+}
+
+rule("Initialize Global")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.Team1HeroPickLoc = Empty Array;
+		Global.Team2HeroPickLoc = Empty Array;
+	}
+}
+
+rule("Initialize per player")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.250, Ignore Condition);
+		disabled Event Player.ChosenLegend = Custom String("Wraith");
+		Disallow Button(Event Player, Ability 2);
+		Disallow Button(Event Player, Ultimate);
+		Event Player.UsingUlt = False;
+		Disable Game Mode HUD(Event Player);
+		disabled Disable Scoreboard(Event Player);
+		disabled Disable Messages(Event Player);
+		disabled Disable Game Mode In-World UI(Event Player);
+		Disable Hero HUD(Event Player);
+		disabled Call Subroutine(HUD);
+		disabled Event Player.LegendAbilityName = Custom String("Eye of the Alfather");
+		disabled Event Player.LegendUltName = Custom String("Beast of the Hunt");
+		disabled Event Player.LegendPassiveName = Custom String("Tracker");
+		Disable Death Spectate Target HUD(Event Player);
+		Add Health Pool To Player(Event Player, Shields, 100, True, True);
+		Add Health Pool To Player(Event Player, Armor, 1, False, False);
+		Disable Nameplates(All Players(All Teams), All Players(All Teams));
+		Event Player.PortalLocations = Empty Array;
+		Event Player.PortalOrb = Empty Array;
+		Start Forcing Player Outlines(All Players(Team Of(Event Player)), Event Player, True, Aqua);
+		Stop Holding Button(Event Player, Primary Fire);
+		Event Player.SmokeEffects = Empty Array;
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, White);
+		Event Player.SonarLocations = Empty Array;
+		Small Message(Event Player, Custom String("Hold {0} to view {1}'s stats", Input Binding String(Button(Interact)),
+			Event Player.ChosenLegend));
+		If(Global.ReplaceAbility1WithSprint == True);
+			Disallow Button(Event Player, Ability 1);
+		End;
+		Call Subroutine(HUD);
+	}
+}
+
+rule("Teammate player names")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Create In-World Text(All Players(Team Of(Event Player)), Custom String("{1}% {0} {2}", Event Player,
+			Global.UltimateGenerationType == True ? Event Player.UltimateGen : Ultimate Charge Percent(Event Player), Custom String(
+			"{0}{1}", Icon String(Heart), Normalized Health(Event Player) * 100)), Event Player, 1, Clip Against Surfaces,
+			Visible To Position and String, Aqua, Default Visibility);
+	}
+}
+
+rule("Workshop Settings")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		"General Settings"
+		Global.LegendPerHero = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
+			"Legend Per Hero (Each Hero is a Legend)"), True);
+		Global.UltimateGenerationType = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
+			"Use Custom Ultimate Generation"), True);
+		Global.ReplaceAbility1WithSprint = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
+			"Replace Ability 1 with Sprint"), True);
+		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100);
+		"Bloodhound Settings"
+		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
+			0, 100);
+		Global.BloodhoundUltimate = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Beast of the Hunt Generation"),
+			180, 0, 500);
+		Global.SonarAngle = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Angle"), 45, 10, 360);
+		Global.SprintIncrease = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Distance"), 100, 10, 300);
+		"Bangalore Settings"
+		Global.BangaloreSmokeDuration = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Smoke Duration"), 23, 0, 100);
+		Global.BangaloreAbility = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Smoke Launcher Cooldown"), 10, 0,
+			100);
+		Global.BangaloreUltimate = Workshop Setting Integer(Custom String("Bangalore"), Custom String(
+			"Rolling Thunder Ultimate Generation"), 270, 0, 500);
+		Global.BangalorePassive = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Double Time Cooldown"), 100, 0, 500);
+		"Wraith Settings"
+		Global.WraithAbility = Workshop Setting Integer(Custom String("Wraith"), Custom String("Into the Void Cooldown"), 25, 0, 100);
+		Global.WraithUltimate = Workshop Setting Integer(Custom String("Wraith"), Custom String("Dimensional Rift Generation"), 150, 0,
+			500);
+		Global.DimensionalRiftDuration = Workshop Setting Integer(Custom String("Wraith"), Custom String(
+			"Dimensional Rift Ultimate Duration"), 60, 0, 100);
+		"Gibraltar Settings"
+		Global.GibraltarAbility = Workshop Setting Integer(Custom String("Gibraltar"), Custom String("Dome of Protection Cooldown"), 30, 0,
+			100);
+		Global.GibraltarUltimate = Workshop Setting Integer(Custom String("Gibraltar"), Custom String(
+			"Defensive Bombardment Ultimate Generation"), 180, 0, 500);
+		"Lifeline Settings"
+		Global.DOCDuration = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Duration"), 20, 0, 100);
+		Global.LifelineAbility = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Heal Drone"), 45, 0, 100);
+		Global.LifelineUltimate = Workshop Setting Integer(Custom String("Lifeline"), Custom String("Massive Heal Ultimate Generation"),
+			360, 0, 500);
+		Global.LifelinePassive = Workshop Setting Integer(Custom String("Lifeline"), Custom String("Combat Revive Cooldown"), 10, 0, 100);
+		"Pathfinder Settings"
+		Global.PathfinderAbility = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Grappling Hook Cooldown"), 35, 0,
+			100);
+		Global.PathfinderUltimate = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Zipline Gun Ultimate Generation"),
+			120, 0, 500);
+		Global.ZiplineMeters = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Zipline Gun Max Range"), 100, 0, 500);
+	}
+}
+
+rule("Loop Legend Heroes if Toggle is on")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.LegendPerHero == True;
+		Is Alive(Event Player) == True;
+		Event Player.LastHero != Hero Of(Event Player);
+	}
+
+	actions
+	{
+		Set Player Allowed Heroes(Event Player, Array(Hero(Reaper), Hero(Bastion), Hero(Roadhog), Hero(Soldier: 76), Hero(Mei), Hero(
+			Ana)));
+		If(Hero Of(Event Player) == Hero(Reaper));
+			Event Player.ChosenLegend = Custom String("Bloodhound");
+		Else If(Hero Of(Event Player) == Hero(Bastion));
+			Event Player.ChosenLegend = Custom String("Pathfinder");
+		Else If(Hero Of(Event Player) == Hero(Roadhog));
+			Event Player.ChosenLegend = Custom String("Gibraltar");
+		Else If(Hero Of(Event Player) == Hero(Soldier: 76));
+			Event Player.ChosenLegend = Custom String("Lifeline");
+		Else If(Hero Of(Event Player) == Hero(Mei));
+			Event Player.ChosenLegend = Custom String("Wraith");
+		Else If(Hero Of(Event Player) == Hero(Ana));
+			Event Player.ChosenLegend = Custom String("Bangalore");
+			disabled Event Player.ChosenLegend = Custom String("Bloodhound");
+		End;
+		Event Player.LastHero = Hero Of(Event Player);
+	}
+}
+
+rule("Sprinting")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		disabled Event Player.UsedAbility == False;
+		Event Player.AbilityActive == False;
+		Is Button Held(Event Player, Ability 1) == True;
+		Event Player.PassiveActive == False;
+		Event Player.UltActive == False;
+		Global.ReplaceAbility1WithSprint == True;
+	}
+
+	actions
+	{
+		Wait(0.001, Ignore Condition);
+		Set Move Speed(Event Player, 100 + Global.SprintIncrease);
+		Loop If Condition Is True;
+		Set Move Speed(Event Player, 100);
+	}
+}
+
+rule("Loop Legend Status")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Spawned(Event Player) == True;
+		disabled Event Player.LastHero != Custom String("NULL");
+		disabled Event Player.UsedAbility == False;
+		Is In Spawn Room(Event Player) == True;
+	}
+
+	actions
+	{
+		Wait(0.250, Ignore Condition);
+		If(Event Player.ChosenLegend == Custom String("Bloodhound"));
+			Event Player.UltimateIncrease = Global.BloodhoundUltimate;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Widowmaker), Button(Ultimate));
+			Event Player.LegendAbilityName = Custom String("Eye of the Alfather");
+			Event Player.LegendUltName = Custom String("Beast of the Hunt");
+			Event Player.LegendPassiveName = Custom String("Tracker");
+			Event Player.AbilityCooldown = Global.BloodhoundAbility;
+			Event Player.UltIcon = Icon String(Skull);
+		Else If(Event Player.ChosenLegend == Custom String("Wraith"));
+			Event Player.AbilityCooldown = Global.WraithAbility;
+			Event Player.UltimateIncrease = Global.WraithUltimate;
+			Event Player.AbilityIcon = Icon String(Eye);
+			Event Player.LegendAbilityName = Custom String("Into the Void");
+			Event Player.LegendUltName = Custom String("Dimensional Rift");
+			Event Player.LegendPassiveName = Custom String("Voices from the Void");
+			Event Player.UltIcon = Ability Icon String(Hero(Symmetra), Button(Ability 2));
+		Else If(Event Player.ChosenLegend == Custom String("Gibraltar"));
+			Event Player.LegendAbilityName = Custom String("Dome of Protection");
+			Event Player.LegendUltName = Custom String("Defensive Bombardment");
+			Event Player.UltimateIncrease = Global.GibraltarUltimate;
+			Event Player.AbilityCooldown = Global.GibraltarAbility;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Winston), Button(Ability 2));
+			Event Player.LegendPassiveName = Custom String("Gun Shield");
+			Event Player.UltIcon = Ability Icon String(Hero(Junkrat), Button(Ultimate));
+		Else If(Event Player.ChosenLegend == Custom String("Pathfinder"));
+			Event Player.LegendAbilityName = Custom String("Grappling Hook");
+			Event Player.UltimateIncrease = Global.PathfinderUltimate;
+			Event Player.AbilityCooldown = Global.PathfinderAbility;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Wrecking Ball), Button(Secondary Fire));
+			Event Player.LegendUltName = Custom String("Zipline Gun");
+			Event Player.LegendPassiveName = Custom String("Insider Knowledge");
+			Event Player.UltIcon = Ability Icon String(Hero(Widowmaker), Button(Ability 1));
+		Else If(Event Player.ChosenLegend == Custom String("Lifeline"));
+			Event Player.UltimateIncrease = Global.LifelineUltimate;
+			Event Player.AbilityCooldown = Global.LifelineAbility;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Baptiste), Button(Ability 1));
+			Event Player.LegendAbilityName = Custom String("D.O.C. Healing Drone");
+			Event Player.LegendUltName = Custom String("Care Package");
+			Event Player.LegendPassiveName = Custom String("Combat Revive");
+			Event Player.UltIcon = Ability Icon String(Hero(Baptiste), Button(Ability 1));
+		Else If(Event Player.ChosenLegend == Custom String("Bangalore"));
+			Event Player.UltimateIncrease = Global.BangaloreUltimate;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Orisa), Button(Ultimate));
+			Event Player.AbilityCooldown = Global.BangaloreAbility;
+			Event Player.LegendAbilityName = Custom String("Smoke Launcher");
+			Event Player.LegendUltName = Custom String("Rolling Thunder");
+			Event Player.LegendPassiveName = Custom String("Double Time");
+			Event Player.UltIcon = Ability Icon String(Hero(Pharah), Button(Ultimate));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Mirage"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Caustic"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Octane"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Wattson"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Crypto"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Revenant"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Loba"));
+		End;
+		Loop If Condition Is True;
+	}
+}
+
+rule("Loop Ammo Changes")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.001, Ignore Condition);
+		If(Is In Alternate Form(Event Player) == True);
+			Event Player.Ammo = Ammo(Event Player, 1);
+			Event Player.MaxAmmo = Max Ammo(Event Player, 1);
+		Else;
+			Event Player.Ammo = Ammo(Event Player, 0);
+			Event Player.MaxAmmo = Max Ammo(Event Player, 0);
+		End;
+		Loop;
+	}
+}
+
+rule("Custom Ult Generation")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.UltimateGenerationType == True;
+		Ultimate Charge Percent(Event Player) <= 100;
+		Event Player.UltActive == False;
+		Event Player.UsingUlt == False;
+		Has Spawned(Event Player) == True;
+		Is Game In Progress == True;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Event Player.UltimateGen += 100 / Event Player.UltimateIncrease;
+		Set Ultimate Charge(Event Player, Event Player.UltimateGen);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Cooldown Timer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.AbilityActive == False;
+		Event Player.UsedAbility == True;
+		Event Player.AbilityCooldown >= 0;
+	}
+
+	actions
+	{
+		Wait(1, Abort When False);
+		Event Player.AbilityCooldown -= 1;
+		Loop If Condition Is True;
+	}
+}
+
+rule("Cooldown Timer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.AbilityActive == False;
+		Event Player.UsedAbility == False;
+		disabled Event Player.AbilityCooldown >= 0;
+	}
+
+	actions
+	{
+		If(Event Player.ChosenLegend == Custom String("Bloodhound"));
+			Event Player.AbilityCooldown = Global.BloodhoundAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Wraith"));
+			Event Player.AbilityCooldown = Global.WraithAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Gibraltar"));
+			Event Player.AbilityCooldown = Global.GibraltarAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Pathfinder"));
+			Event Player.AbilityCooldown = Global.PathfinderAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Lifeline"));
+			Event Player.AbilityCooldown = Global.LifelineAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Bangalore"));
+			Event Player.AbilityCooldown = Global.BangaloreAbility;
+			disabled Else If(Event Player.ChosenLegend == Custom String("Mirage"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Caustic"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Octane"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Wattson"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Crypto"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Revenant"));
+			disabled Else If(Event Player.ChosenLegend == Custom String("Loba"));
+	}
+}
+
+disabled rule("Legend Info in Spawn room")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is In Spawn Room(Event Player) == True;
+	}
+
+	actions
+	{
+		Destroy All HUD Text;
+		Wait(0.010, Ignore Condition);
+		Call Subroutine(LegendInfoHUD);
+	}
+}
+
+disabled rule("Legend Info in Spawn room")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == False;
+		Is In Spawn Room(Event Player) == True;
+	}
+
+	actions
+	{
+		Destroy All HUD Text;
+		Wait(0.010, Ignore Condition);
+		Call Subroutine(HUD);
+	}
+}
+
+disabled rule("Legend Info in Spawn room")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == False;
+		Is In Spawn Room(Event Player) == False;
+	}
+
+	actions
+	{
+		Destroy All HUD Text;
+		Wait(0.010, Ignore Condition);
+		Call Subroutine(HUD);
+	}
+}
+
+rule("Information HUD")
+{
+	event
+	{
+		Subroutine;
+		LegendInfoHUD;
+	}
+
+	actions
+	{
+		Create HUD Text(Event Player, Custom String("Legend: {0}\r\n\r\n\r\n\r\n{1}\r\n{2}\r\n\r\n\r\n ", Event Player.ChosenLegend,
+			Custom String("{0}\r\n{1}\r\n{2}", Custom String("{2} Ability: {0} - {1} second cooldown", String("{0} {1}",
+			Event Player.AbilityIcon, Event Player.LegendAbilityName), Event Player.AbilityCooldown, Input Binding String(Button(
+			Ability 2))), Custom String("{2} Ultimate: {0} {1}", Event Player.UltIcon, Event Player.LegendUltName, Input Binding String(
+			Button(Ultimate))), Custom String("Passive: {0}", Event Player.LegendPassiveName))), Null, Null, Top, 0, White, White, White,
+			Visible To and String, Default Visibility);
+	}
+}
+
+rule("If Using Ults Keep Ult Charge to 0")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.UsingUlt == True;
+	}
+
+	actions
+	{
+		Wait(0.016, Abort When False);
+		Set Ultimate Charge(Event Player, 0);
+		Loop If Condition Is True;
+	}
+}
+
+rule("HUD")
+{
+	event
+	{
+		Subroutine;
+		HUD;
+	}
+
+	actions
+	{
+		Create HUD Text(Event Player, Custom String("{0} - {1} - {2}", Event Player.UltTimer, Match Time, Event Player.AbilityActive),
+			Null, Null, Left, 0, White, White, White, Visible To and String, Default Visibility);
+		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
+			Visible To and String, Default Visibility);
+		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
+			Visible To and String, Default Visibility);
+		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
+			Visible To and String, Default Visibility);
+		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
+			Visible To and String, Default Visibility);
+		Create HUD Text(All Players(Team Of(Event Player)), Null, Custom String("{0} {1}% {2}", String("{0} {1}",
+			Event Player.ChosenLegend, Event Player), Normalized Health(Event Player) * 100, Ability Icon String(Hero Of(Event Player),
+			Button(Primary Fire))), Null, Left, 4, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Custom String("{0} {1}", Ability Icon String(Hero Of(Event Player), Button(Primary Fire)),
+			Event Player.MaxAmmo != 0 ? Custom String("{0}/{1}", Event Player.Ammo, Event Player.MaxAmmo) : Icon String(Question Mark),
+			Event Player.MaxAmmo), Null, Null, Left, 5, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Custom String("{1}\r\n{2}", Null, Event Player.PlayerArmor, Event Player.PlayerHealth), Null, Null,
+			Left, 6, White, White, White, Visible To and String, Default Visibility);
+		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n \r\n "), Custom String(
+			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n{0}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", Icon String(Plus)),
+			Top, 1, White, White, White, None, Default Visibility);
+		Create HUD Text(Event Player, Null, Custom String(
+			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n "),
+			Null, Left, 4, White, White, White, None, Default Visibility);
+		"If Game HUD is disabled"
+		Create HUD Text(Event Player, Null, Custom String(" \r\n \r\n "), Custom String(
+			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+			Icon String(Plus), Event Player.Damage > 0 ? Custom String("{0}", Round To Integer(Event Player.Damage, To Nearest))
+			: Custom String("")), Top, 1, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Custom String("{0}", Global.UltimateGenerationType == True ? (
+			Event Player.UltimateGen >= 100 ? Event Player.UltIcon : Custom String("{0}%", Round To Integer(Event Player.UltimateGen,
+			To Nearest))) : (Ultimate Charge Percent(Event Player) >= 100 ? Event Player.UltIcon : Custom String("{0}%",
+			Ultimate Charge Percent(Event Player)))), Null, Null, Top, 2, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Custom String("{1}", Null, Ultimate Charge Percent(Event Player) == 100 ? Input Binding String(
+			Button(Ultimate)) : Icon String(No)), Custom String(""), Custom String(""), Top, 3, White, White, White, Visible To and String,
+			Default Visibility);
+		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}",
+			Event Player.UsedAbility == False ? Event Player.AbilityIcon : Event Player.AbilityCooldown)), Custom String(
+			"                                                                                                                             {0}",
+			String("")), Custom String(""), Top, 4, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}", Event Player.UsedAbility == False ? Input Binding String(
+			Button(Ability 2)) : Icon String(No))), Custom String(
+			"                                                                                                                             {0}",
+			String("")), Custom String(""), Top, 5, White, White, White, Visible To and String, Default Visibility);
+	}
+}
+
+rule("Skip Assempling Heroes")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Assembling Heroes == True;
+	}
+
+	actions
+	{
+		Set Match Time(0);
+	}
+}
+
+rule("Health bar changes ■□")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.250, Ignore Condition);
+		If(Normalized Health(Event Player) == 1);
+			Event Player.PlayerHealth = Custom String("■■■■■■■■■■");
+		Else If(Normalized Health(Event Player) < 1 && Normalized Health(Event Player) >= 0.900);
+			Event Player.PlayerHealth = Custom String("■■■■■■■■■□");
+		Else If(Normalized Health(Event Player) < 0.900 && Normalized Health(Event Player) >= 0.800);
+			Event Player.PlayerHealth = Custom String("■■■■■■■■□□");
+		Else If(Normalized Health(Event Player) < 0.800 && Normalized Health(Event Player) >= 0.700);
+			Event Player.PlayerHealth = Custom String("■■■■■■■□□□");
+		Else If(Normalized Health(Event Player) < 0.700 && Normalized Health(Event Player) >= 0.600);
+			Event Player.PlayerHealth = Custom String("■■■■■■□□□□");
+		Else If(Normalized Health(Event Player) < 0.600 && Normalized Health(Event Player) >= 0.500);
+			Event Player.PlayerHealth = Custom String("■■■■■□□□□□");
+		Else If(Normalized Health(Event Player) < 0.500 && Normalized Health(Event Player) >= 0.400);
+			Event Player.PlayerHealth = Custom String("■■■■□□□□□□");
+		Else If(Normalized Health(Event Player) < 0.400 && Normalized Health(Event Player) >= 0.300);
+			Event Player.PlayerHealth = Custom String("■■■□□□□□□□");
+		Else If(Normalized Health(Event Player) < 0.300 && Normalized Health(Event Player) >= 0.200);
+			Event Player.PlayerHealth = Custom String("■■□□□□□□□□");
+		Else If(Normalized Health(Event Player) < 0.200 && Normalized Health(Event Player) >= 0.100);
+			Event Player.PlayerHealth = Custom String("■□□□□□□□□□");
+		Else If(Normalized Health(Event Player) < 0.100 && Normalized Health(Event Player) >= 0);
+			Event Player.PlayerHealth = Custom String("□□□□□□□□□□");
+		End;
+		If(Health Of Type(Event Player, Shields) == 100);
+			Event Player.PlayerArmor = Custom String("■ ■ ■ ■ ■");
+		Else If(Health Of Type(Event Player, Shields) < 100 && Health Of Type(Event Player, Shields) >= 80);
+			Event Player.PlayerArmor = Custom String("■ ■ ■ ■ □");
+		Else If(Health Of Type(Event Player, Shields) < 80 && Health Of Type(Event Player, Shields) >= 60);
+			Event Player.PlayerArmor = Custom String("■ ■ ■ □ □");
+		Else If(Health Of Type(Event Player, Shields) < 60 && Health Of Type(Event Player, Shields) >= 40);
+			Event Player.PlayerArmor = Custom String("■ ■ □ □ □");
+		Else If(Health Of Type(Event Player, Shields) < 40 && Health Of Type(Event Player, Shields) >= 20);
+			Event Player.PlayerArmor = Custom String("■ □ □ □ □");
+		Else If(Health Of Type(Event Player, Shields) < 20 && Health Of Type(Event Player, Shields) >= 0);
+			Event Player.PlayerArmor = Custom String("□ □ □ □ □");
+		End;
+		Loop;
+	}
+}
+
+rule("Ultimate Icon Change")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.250, Ignore Condition);
+		If(Ultimate Charge Percent(Event Player) == 100);
+			Event Player.UltimateIcon = Button(Ultimate);
+		Else;
+			Event Player.UltimateIcon = Icon String(No);
+		End;
+		Loop;
+	}
+}
+
+rule("Damage")
+{
+	event
+	{
+		Player Dealt Damage;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Event Player.Damage += Event Damage;
+	}
+}
+
+rule("Damage World Text")
+{
+	event
+	{
+		Player Dealt Damage;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Damage >= 0;
+	}
+
+	actions
+	{
+		disabled Destroy In-World Text(Last Text ID);
+		disabled Create In-World Text(Event Player, Event Player.PortalLocations, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
+			Event Player) + Facing Direction Of(Event Player) * 1, Event Player, All Players(All Teams), True), 1, Clip Against Surfaces,
+			Visible To Position and String, White, Default Visibility);
+		Wait(2, Restart When True);
+		disabled Destroy In-World Text(Last Text ID);
+		Event Player.Damage = 0;
+	}
+}
+
+rule("OCTANES ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Octane Regen Health")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Octane");
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Heal(Event Player, Null, 1);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Octane Stim")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Octane");
+		Is Button Held(Event Player, Ability 2) == True;
+		Event Player.UsedAbility == False;
+	}
+
+	actions
+	{
+		Event Player.UsedAbility = True;
+		Set Move Speed(Event Player, 140);
+		Damage(Event Player, Null, 50);
+		Wait(6, Ignore Condition);
+		Set Move Speed(Event Player, 100);
+		Wait(2, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Octane Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Octane");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+	}
+
+	actions
+	{
+		Set Ultimate Charge(Event Player, 0);
+	}
+}
+
+rule("BLOODHOUND ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Bloodhound Sonar")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bloodhound");
+		Is Button Held(Event Player, Ability 2) == True;
+		Event Player.UsedAbility == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.AbilityActive = True;
+		Event Player.SonarLocations = Empty Array;
+		Event Player.UsedAbility = True;
+		Event Player.SonarAbility = Players in View Angle(Event Player, Opposite Team Of(Team Of(Event Player)), 45);
+		Event Player.SonarFiltered = Filtered Array(Event Player.SonarAbility, Distance Between(Eye Position(Event Player),
+			Current Array Element) <= 100);
+		Big Message(Event Player, Custom String("{0} enemies located!", Count Of(Event Player.SonarFiltered)));
+		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.SonarFiltered), 1);
+			Create Icon(All Players(Team Of(Event Player)), Event Player.SonarFiltered[Event Player.Array_I], Warning, None, Red, True);
+			Modify Player Variable(Event Player, SonarLocations, Append To Array, Last Created Entity);
+		End;
+		Wait(3, Ignore Condition);
+		While(Event Player.SonarLocations != Empty Array);
+			Destroy Icon(First Of(Event Player.SonarLocations));
+			Modify Player Variable(Event Player, SonarLocations, Remove From Array By Index, False);
+		End;
+		Event Player.AbilityActive = False;
+		Wait(Global.BloodhoundAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Bloodhound Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bloodhound");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, True, Red);
+		Event Player.UltTimer = 15;
+		Event Player.UsingUlt = True;
+		Set Ultimate Charge(Event Player, 0);
+		Create Effect(Event Player, Sphere, White, Event Player, 3, Visible To Position and Radius);
+		Event Player.BombardmentLastCreated = Last Created Entity;
+		Set Damage Dealt(Event Player, 150);
+		Set Move Speed(Event Player, 200);
+		Wait(15, Ignore Condition);
+		Event Player.UsingUlt = False;
+		Set Move Speed(Event Player, 100);
+		Set Damage Dealt(Event Player, 100);
+		Destroy Effect(Event Player.BombardmentLastCreated);
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, Red);
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("Bloodhound Ult timer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bloodhound");
+		Event Player.UsingUlt == True;
+	}
+
+	actions
+	{
+		Wait(1, Abort When False);
+		Event Player.UltTimer -= 1;
+		Loop If Condition Is True;
+	}
+}
+
+rule("WRAITH ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Wraith Phase")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Is Button Held(Event Player, Ability 2) == True;
+		Event Player.UsedAbility == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.AbilityActive = True;
+		Disallow Button(Event Player, Primary Fire);
+		Disallow Button(Event Player, Secondary Fire);
+		Event Player.UsedAbility = True;
+		Wait(1.250, Ignore Condition);
+		Create Effect(All Players(All Teams), Sparkles, White, Event Player, 1, Visible To Position and Radius);
+		Event Player.LastEffectPhase = Last Created Entity;
+		Create Effect(Event Player, Sphere, White, Event Player, 1, Visible To Position and Radius);
+		Set Status(Event Player, Null, Phased Out, 9999);
+		Set Move Speed(Event Player, 130);
+		Set Invisible(Event Player, All);
+		Wait(4, Ignore Condition);
+		Destroy Effect(Last Created Entity);
+		Set Move Speed(Event Player, 100);
+		Allow Button(Event Player, Primary Fire);
+		Allow Button(Event Player, Secondary Fire);
+		Set Invisible(Event Player, None);
+		Clear Status(Event Player, Phased Out);
+		Destroy Effect(Event Player.LastEffectPhase);
+		Event Player.AbilityActive = False;
+		Wait(Global.WraithAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Wraith Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.PortalLocations = Empty Array;
+		Event Player.UltTimer = 15;
+		Event Player.UsingUlt = True;
+		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
+		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
+		Disallow Button(Event Player, Primary Fire);
+		Disallow Button(Event Player, Secondary Fire);
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("Wraith Ult Timer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Event Player.UsingUlt == True;
+		Event Player.UltTimer > 0;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Event Player.UltTimer -= 1;
+		Loop If Condition Is True;
+	}
+}
+
+disabled rule("Wraith Phase Constantly Set Pos")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Has Status(Event Player, Phased Out) == True;
+		Is In Spawn Room(Event Player) == False;
+	}
+
+	actions
+	{
+		Wait(0.250, Ignore Condition);
+		Create Effect(All Players(All Teams), Sparkles, White, Event Player, 2, Visible To Position and Radius);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Wraith Place end portal")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Event Player.UsingUlt == True;
+		Event Player.UltTimer > 0;
+		Is Button Held(Event Player, Primary Fire) == True;
+		Count Of(Event Player.PortalLocations) != 2;
+	}
+
+	actions
+	{
+		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
+		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
+		Event Player.UltTimer = 999;
+		Wait(0.250, Ignore Condition);
+		Allow Button(Event Player, Primary Fire);
+		Allow Button(Event Player, Secondary Fire);
+		Wait(Global.DimensionalRiftDuration, Ignore Condition);
+		While(Event Player.PortalLocations != Empty Array);
+			Destroy Effect(First Of(Event Player.PortalLocations));
+			Modify Player Variable(Event Player, PortalLocations, Remove From Array By Index, False);
+		End;
+		While(Event Player.PortalOrb != Empty Array);
+			Destroy Effect(First Of(Event Player.PortalOrb));
+			Modify Player Variable(Event Player, PortalOrb, Remove From Array By Index, False);
+		End;
+		Event Player.UsingUlt = False;
+		Press Button(Event Player, Primary Fire);
+		Press Button(Event Player, Ultimate);
+	}
+}
+
+rule("Wraith Teleporter")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Count Of(Event Player.PortalLocations) == 2;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Disallow Button(Event Player, Interact);
+		If(Distance Between(Position Of(Event Player), Event Player.PortalLocations[0]) <= 3);
+			Teleport(Event Player, Event Player.PortalLocations[1]);
+		Else If(Distance Between(Position Of(Event Player), Event Player.PortalLocations[1]) <= 3);
+			Teleport(Event Player, Event Player.PortalLocations[0]);
+		End;
+		Wait(1, Ignore Condition);
+		Allow Button(Event Player, Interact);
+	}
+}
+
+rule("Wraith Ult time runs out")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Wraith");
+		Event Player.UsingUlt == True;
+		Event Player.UltTimer <= 0;
+		Count Of(Event Player.PortalLocations) != 2;
+	}
+
+	actions
+	{
+		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
+		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
+		Event Player.UltTimer = 0;
+		Wait(0.250, Ignore Condition);
+		Allow Button(Event Player, Primary Fire);
+		Allow Button(Event Player, Secondary Fire);
+		Wait(Global.DimensionalRiftDuration, Ignore Condition);
+		While(Event Player.PortalLocations != Empty Array);
+			Destroy Effect(First Of(Event Player.PortalLocations));
+			Modify Player Variable(Event Player, PortalLocations, Remove From Array By Index, False);
+		End;
+		While(Event Player.PortalOrb != Empty Array);
+			Destroy Effect(First Of(Event Player.PortalOrb));
+			Modify Player Variable(Event Player, PortalOrb, Remove From Array By Index, False);
+		End;
+		Event Player.UsingUlt = False;
+	}
+}
+
+rule("GILBRALTAR ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Gibraltar Dome Shield")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Gibraltar");
+		Is Button Held(Event Player, Ability 2) == True;
+		Event Player.UsedAbility == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.AbilityActive = True;
+		Event Player.UsedAbility = True;
+		Event Player.AbilityLocation = Position Of(Event Player);
+		Create Effect(All Players(All Teams), Sphere, Blue, Event Player.AbilityLocation, 6, None);
+		Wait(12, Ignore Condition);
+		Destroy Effect(Last Created Entity);
+		Event Player.AbilityLocation = 0;
+		Event Player.AbilityActive = False;
+		Wait(Global.GibraltarAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Gibraltar Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Gibraltar");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsingUlt = True;
+		Event Player.BombardmentLocation = Ray Cast Hit Position(Eye Position(Event Player), Eye Position(Event Player)
+			+ Facing Direction Of(Event Player) * 30, All Players(All Teams), Event Player, True);
+		Create Effect(All Players(All Teams), Sphere, Orange, Event Player.BombardmentLocation, 15, Visible To Position and Radius);
+		Event Player.BombardmentLastCreated = Last Created Entity;
+		Wait(3, Ignore Condition);
+		Destroy Effect(Event Player.BombardmentLastCreated);
+		Create Effect(All Players(All Teams), Light Shaft, Red, Vector(X Component Of(Event Player.BombardmentLocation), Y Component Of(
+			Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15, Visible To Position and Radius);
+		Event Player.BombardmentLastCreated = Last Created Entity;
+		Event Player.AbilityActive = True;
+		Wait(6, Ignore Condition);
+		Event Player.AbilityActive = False;
+		Destroy Effect(Event Player.BombardmentLastCreated);
+		Event Player.UsingUlt = False;
+		Press Button(Event Player, Ultimate);
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("Gibraltar Ult - Damage")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.AbilityActive == True;
+		Event Player.UsingUlt == True;
+		Event Player.ChosenLegend == Custom String("Gibraltar");
+	}
+
+	actions
+	{
+		Wait(0.250, Abort When False);
+		Damage(Players Within Radius(Event Player.BombardmentLocation, 15, Opposite Team Of(Team Of(Event Player)), Off), Event Player,
+			50);
+		If(Distance Between(Position Of(Event Player), Event Player.BombardmentLocation) <= 15);
+			Damage(Event Player, Event Player, 50);
+		End;
+		Loop If Condition Is True;
+	}
+}
+
+rule("Gilbraltar Dome Modification")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Gibraltar");
+		Event Player.AbilityActive == True;
+	}
+
+	actions
+	{
+		Start Damage Modification(Players Within Radius(Event Player.AbilityLocation, 6, All Teams, Off), All Players(All Teams), 0,
+			Receivers Damagers and Damage Percent);
+		Wait(0.250, Abort When False);
+		disabled Heal(Players Within Radius(Event Player.AbilityLocation, 3, All Teams, Off), Event Player, 20);
+		Stop Damage Modification(Last Damage Modification ID);
+		Loop If Condition Is True;
+	}
+}
+
+rule("LIFELINE ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Lifeline Health Drone")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Lifeline");
+		Is Button Held(Event Player, Ability 2) == True;
+		Event Player.UsedAbility == False;
+		Event Player.AbilityActive == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsedAbility = True;
+		Event Player.AbilityActive = True;
+		Create Effect(All Players(All Teams), Sphere, Turquoise, Position Of(Event Player), 3, None);
+		Event Player.LastEffectPhase = Last Created Entity;
+		Wait(Global.DOCDuration, Ignore Condition);
+		Event Player.AbilityActive = False;
+		Destroy Effect(Event Player.LastEffectPhase);
+		Wait(Global.LifelineAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Lifeline Passive Revive")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Lifeline");
+		Is Button Held(Event Player, Interact) == True;
+		Event Player.UsingPassive == False;
+		Event Player.PassiveActive == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsingPassive = True;
+		Event Player.PassiveActive = True;
+		Event Player.PassiveLocation = Position Of(Event Player);
+		Create Effect(All Players(All Teams), Orb, Turquoise, Event Player.GrappleEndpoint, 3, None);
+		Wait(3, Ignore Condition);
+		Event Player.PassiveActive = False;
+		Destroy Effect(Last Created Entity);
+		Resurrect(Players Within Radius(Event Player.PassiveLocation, 3, Team Of(Event Player), Off));
+		Wait(Global.LifelinePassive, Ignore Condition);
+		Event Player.UsingPassive = False;
+	}
+}
+
+rule("Lifeline Health Drone - Heal")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Lifeline");
+		Event Player.AbilityActive == True;
+	}
+
+	actions
+	{
+		Wait(0.250, Abort When False);
+		Heal(Players Within Radius(Event Player.AbilityLocation, 3, All Teams, Off), Event Player, 20);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Lifeline Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Lifeline");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsingUlt = True;
+		Wait(1, Ignore Condition);
+		Chase Player Variable Over Time(Event Player, RangeChange, 20, 5, Destination and Duration);
+		Create Effect(All Players(All Teams), Sphere, White, Event Player, Event Player.RangeChange, Visible To Position and Radius);
+		Event Player.BombardmentLastCreated = Last Created Entity;
+		Heal(All Players(Team Of(Event Player)), Event Player, 10000);
+		Press Button(Event Player, Primary Fire);
+		Wait(5, Ignore Condition);
+		Destroy Effect(Event Player.BombardmentLastCreated);
+		Event Player.RangeChange = 0;
+		Event Player.UsingUlt = False;
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("BANGALORE Abilities")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Bangalore Smoke")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bangalore");
+		Is Button Held(Event Player, Ability 2) == True;
+		disabled Event Player.UsedAbility == False;
+		disabled Count Of(Event Player.SmokeLocations) < 3;
+		Event Player.AbilityActive == False;
+		disabled Event Player.SmokeEffects != 3;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.AbilityActive = True;
+		Event Player.UsedAbility = True;
+		Damage(Players Within Radius(Position Of(Event Player), 5, Opposite Team Of(Team Of(Event Player)), Off), Event Player, 10);
+		Event Player.SmokeLocations = Eye Position(Event Player);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
+		Wait(Global.BangaloreSmokeDuration, Ignore Condition);
+		While(Event Player.SmokeEffects != Empty Array);
+			Destroy Effect(First Of(Event Player.SmokeEffects));
+			Modify Player Variable(Event Player, SmokeEffects, Remove From Array By Index, False);
+		End;
+		Event Player.AbilityActive = False;
+		Event Player.SmokeLocations = 9999;
+		Destroy Effect(Event Player.SmokeEffects);
+		Wait(Global.BangaloreAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Bangalore Smoke Effects")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bangalore");
+		Event Player.AbilityActive == True;
+	}
+
+	actions
+	{
+		Wait(0.800, Ignore Condition);
+		Play Effect(Players Within Radius(Event Player.SmokeLocations, 5, All Teams, Off), Bad Explosion, White,
+			Event Player.SmokeLocations, 5);
+		Loop;
+	}
+}
+
+rule("Bangalore Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bangalore");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsingUlt = True;
+		Event Player.BombardmentLocation = Position Of(Event Player);
+		Create Effect(All Players(All Teams), Sphere, Orange, Event Player.BombardmentLocation, 15, Visible To Position and Radius);
+		Event Player.BombardmentLastCreated = Last Created Entity;
+		Destroy Effect(Event Player.BombardmentLastCreated);
+		Wait(3, Ignore Condition);
+		Destroy Effect(Last Created Entity);
+		Create Effect(All Players(All Teams), Light Shaft, Orange, Vector(X Component Of(Event Player.BombardmentLocation), Y Component Of(
+			Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15, Visible To Position and Radius);
+		Event Player.UltActive = True;
+		Wait(6, Ignore Condition);
+		Event Player.UltActive = False;
+		Destroy Effect(Last Created Entity);
+		Event Player.UsingUlt = False;
+		Press Button(Event Player, Ultimate);
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("Bangalore Ult - Damage")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.UltActive == True;
+		Event Player.UsingUlt == True;
+		Event Player.ChosenLegend == Custom String("Bangalore");
+	}
+
+	actions
+	{
+		Wait(0.250, Abort When False);
+		Start Damage Over Time(Players Within Radius(Event Player.BombardmentLocation, 15, Opposite Team Of(Team Of(Event Player)), Off),
+			Event Player, 2, 8);
+		Set Status(Players Within Radius(Event Player.BombardmentLocation, 15, Opposite Team Of(Team Of(Event Player)), Off), Event Player,
+			Burning, 1);
+		If(Distance Between(Position Of(Event Player), Event Player.BombardmentLocation) <= 15);
+			Start Damage Over Time(Event Player, Event Player, 2, 8);
+			Set Status(Event Player, Event Player, Burning, 1);
+		End;
+		Loop If Condition Is True;
+	}
+}
+
+rule("Bangalore Passive")
+{
+	event
+	{
+		Player Took Damage;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Bangalore");
+		Event Player.PassiveActive == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.PassiveActive = True;
+		Set Move Speed(Event Player, 150);
+		Set Damage Received(Event Player, 75);
+		Wait(2, Ignore Condition);
+		Set Move Speed(Event Player, 100);
+		Set Damage Received(Event Player, 100);
+		Wait(Global.BangalorePassive, Ignore Condition);
+		Event Player.PassiveActive = False;
+	}
+}
+
+rule("PATHFINDER ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Grappling hook")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Ability 2) == True;
+		Is Alive(Event Player) == True;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Event Player.ChosenLegend == Custom String("Pathfinder");
+		Event Player.UsedAbility == False;
+	}
+
+	actions
+	{
+		Global.GrappleRange = 25;
+		Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 30);
+		Event Player.GrappleTarget = Ray Cast Hit Player(Eye Position(Event Player), Eye Position(Event Player) + Facing Direction Of(
+			Event Player) * Global.GrappleRange, All Players(All Teams), Filtered Array(All Players(All Teams),
+			!Current Array Element.IsGrappleable), False);
+		If(Entity Exists(Event Player.GrappleTarget));
+			Event Player.GrappleOffset = Local Vector Of(Ray Cast Hit Position(Eye Position(Event Player), Eye Position(Event Player)
+				+ Facing Direction Of(Event Player) * Global.GrappleRange, All Players(All Teams), Filtered Array(All Players(All Teams),
+				!Current Array Element.IsGrappleable), False), Event Player.GrappleTarget, Rotation And Translation);
+		Else;
+			Event Player.GrappleTarget = Ray Cast Hit Position(Eye Position(Event Player), Eye Position(Event Player) + Facing Direction Of(
+				Event Player) * Global.GrappleRange, Null, Event Player, False);
+			Event Player.GrappleOffset = Vector(0, 0, 0);
+		End;
+		Event Player.GrappleEndpoint = Eye Position(Event Player) + Down * 0.500;
+		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player, Event Player.GrappleEndpoint, White,
+			Visible To Position and Radius);
+		Event Player.GrappleBeam = Last Created Entity;
+		If(!Entity Exists(Event Player.GrappleTarget) && Distance Between(Eye Position(Event Player), Event Player.GrappleTarget)
+			>= Global.GrappleRange);
+			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Event Player.GrappleTarget, 150, Destination and Rate);
+			Wait(Global.GrappleRange / 150, Ignore Condition);
+			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Eye Position(Event Player) + Down * 0.500, 150, Destination and Rate);
+			Wait(Global.GrappleRange / 150, Ignore Condition);
+			Destroy Effect(Event Player.GrappleBeam);
+		Else;
+			Event Player.AbilityActive = True;
+			Event Player.UsedAbility = True;
+			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Entity Exists(Event Player.GrappleTarget) ? World Vector Of(
+				Event Player.GrappleOffset, Event Player.GrappleTarget, Rotation And Translation) : Event Player.GrappleTarget, 150,
+				Destination and Rate);
+			disabled Press Button(Event Player, Interact);
+			Wait(Distance Between(Event Player, Event Player.GrappleTarget) / 150, Ignore Condition);
+			Play Effect(Event Player, Buff Explosion Sound, White, Event Player, 50);
+			Start Accelerating(Event Player, Up, 10, 60, To World, Direction Rate and Max Speed);
+			While(!Is Button Held(Event Player, Interact) && Is Alive(Event Player) && Is In View Angle(Event Player,
+				Event Player.GrappleEndpoint, 90) && !Is Button Held(Event Player, Crouch) && Distance Between(Event Player,
+				Event Player.GrappleEndpoint) <= 35 && !(False && (Is Firing Primary(Event Player) || Is Firing Secondary(Event Player)
+				|| Is Using Ability 1(Event Player) || Is Using Ability 2(Event Player) || Is Using Ultimate(Event Player))) && !(Has Status(
+				Event Player, Hacked) || Has Status(Event Player, Knocked Down) || Has Status(Event Player, Asleep) || Has Status(Event Player,
+				Frozen) || Has Status(Event Player, Hacked) || Has Status(Event Player, Stunned)) && True);
+				Apply Impulse(Event Player, Direction Towards(Event Player, Event Player.GrappleEndpoint), 1, To World,
+					Incorporate Contrary Motion);
+				Apply Impulse(Event Player, Facing Direction Of(Event Player) + World Vector Of(Left, Event Player, Rotation) * X Component Of(
+					Throttle Of(Event Player)), 1, To World, Incorporate Contrary Motion);
+				Wait(0.048, Ignore Condition);
+			End;
+			Stop Accelerating(Event Player);
+			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Eye Position(Event Player) + Down * 0.500, 150, Destination and Rate);
+			Wait(Distance Between(Event Player, Event Player.GrappleTarget) / 150, Ignore Condition);
+			Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 30);
+			Event Player.AbilityActive = False;
+			Destroy Effect(Event Player.GrappleBeam);
+			Wait(35, Ignore Condition);
+			Skip If(!True, 1);
+			Small Message(Event Player, Custom String("{0} grapple ready", Ability Icon String(Hero(Wrecking Ball), Button(Secondary Fire))));
+			Event Player.UsedAbility = False;
+		End;
+	}
+}
+
+disabled rule("Pathfinder Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Pathfinder");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+	}
+
+	actions
+	{
+		Event Player.UsingUlt = True;
+		disabled For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.Zipline), 1);
+		disabled Destroy Effect(Event Player.Array_I);
+		disabled Modify Player Variable(Event Player, Zipline, Remove From Array By Index, 0);
+		disabled End;
+		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.ZiplineEffects), 1);
+			Destroy Effect(Event Player.Array_I);
+			Modify Player Variable(Event Player, ZiplineEffects, Remove From Array By Index, 0);
+		End;
+		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.ZiplineBeam), 1);
+			Destroy Effect(Event Player.Array_I);
+			Modify Player Variable(Event Player, ZiplineBeam, Remove From Array By Index, 0);
+		End;
+		Event Player.Zipline = Empty Array;
+		Modify Player Variable(Event Player, Zipline, Append To Array, Position Of(Event Player));
+		Modify Player Variable(Event Player, Zipline, Append To Array, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
+			Event Player) + Facing Direction Of(Event Player) * Global.ZiplineMeters, All Players(All Teams), Event Player, True));
+		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player.Zipline[0], Event Player.Zipline[1], White,
+			Visible To Position and Radius);
+		Event Player.UltActive = True;
+		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
+		disabled Create Beam Effect(All Players(All Teams), Good Beam, Event Player.Zipline[0], Vector(X Component Of(Event Player.Zipline[0]),
+			Y Component Of(Event Player.Zipline[0] + 0.500), Z Component Of(Event Player.Zipline[0])), White,
+			Visible To Position and Radius);
+		disabled Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
+		Wait(3, Ignore Condition);
+		Event Player.UltActive = False;
+		Event Player.UsingUlt = False;
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
+
+rule("Rule 57")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Reload) == True;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Hero(Ana), All Teams, -1, Vector(0, 0, 0), Vector(0, 0, 0));
+		Start Holding Button(Players On Hero(Hero(Ana), All Teams), Primary Fire);
+	}
+}
+
+rule("Pathfinder Zipline")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Count Of(Event Player.Zipline) == 2;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Disallow Button(Event Player, Interact);
+		If(Distance Between(Position Of(Event Player), Event Player.Zipline[0]) <= 3);
+			Teleport(Event Player, Event Player.Zipline[1]);
+		Else If(Distance Between(Position Of(Event Player), Event Player.Zipline[1]) <= 3);
+			Teleport(Event Player, Event Player.Zipline[0]);
+		End;
+		Wait(1, Ignore Condition);
+		Allow Button(Event Player, Interact);
+	}
+}
+
+rule("Pathfinder Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Pathfinder");
+		Is Button Held(Event Player, Ultimate) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsingUlt = True;
+		disabled For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.Zipline), 1);
+		disabled Destroy Effect(Event Player.Array_I);
+		disabled Modify Player Variable(Event Player, Zipline, Remove From Array By Index, 0);
+		disabled End;
+		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.ZiplineEffects), 1);
+			Destroy Effect(Event Player.Array_I);
+			Modify Player Variable(Event Player, ZiplineEffects, Remove From Array By Index, 0);
+		End;
+		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.ZiplineBeam), 1);
+			Destroy Effect(Event Player.Array_I);
+			Modify Player Variable(Event Player, ZiplineBeam, Remove From Array By Index, 0);
+		End;
+		Event Player.Zipline = Empty Array;
+		Modify Player Variable(Event Player, Zipline, Append To Array, Position Of(Event Player));
+		Modify Player Variable(Event Player, Zipline, Append To Array, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
+			Event Player) + Facing Direction Of(Event Player) * Global.ZiplineMeters, All Players(All Teams), Event Player, True));
+		Create Beam Effect(All Players(All Teams), Grapple Beam, Vector(X Component Of(Event Player.Zipline[0]), Y Component Of(
+			Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), Event Player.Zipline[1], White,
+			Visible To Position and Radius);
+		Event Player.UltActive = True;
+		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
+		Create Beam Effect(All Players(All Teams), Good Beam, Event Player.Zipline[0], Vector(X Component Of(Event Player.Zipline[0]),
+			Y Component Of(Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), White, Visible To Position and Radius);
+		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
+		Wait(3, Ignore Condition);
+		Event Player.UltActive = False;
+		Event Player.UsingUlt = False;
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+	}
+}
