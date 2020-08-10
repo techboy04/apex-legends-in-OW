@@ -1,3 +1,19 @@
+settings
+{
+	modes
+	{
+		Deathmatch
+
+		General
+		{
+			Allow Hero Switching: Off
+			Enemy Health Bars: Off
+			Game Mode Start: Immediately
+			Limit Roles: 2 Of Each Role Per Team
+		}
+	}
+}
+
 variables
 {
 	global:
@@ -24,9 +40,11 @@ variables
 		21: SprintIncrease
 		22: SonarAngle
 		24: ZiplineMeters
+		25: ObjectiveHud
 		26: GrappleRange
 		27: Team1HeroPickLoc
 		28: Team2HeroPickLoc
+		29: ObjectiveAlternative
 
 	player:
 		0: ChosenLegend
@@ -156,6 +174,102 @@ rule("Teammate player names")
 			Global.UltimateGenerationType == True ? Event Player.UltimateGen : Ultimate Charge Percent(Event Player), Custom String(
 			"{0}{1}", Icon String(Heart), Normalized Health(Event Player) * 100)), Event Player, 1, Clip Against Surfaces,
 			Visible To Position and String, Aqua, Default Visibility);
+	}
+}
+
+rule("Mission Objective Loop")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Wait(0.001, Ignore Condition);
+		If(Current Game Mode == Game Mode(Assault));
+			Global.ObjectiveHud = Custom String("{0} {1}", Point Capture Percentage, Match Time == 0 ? Custom String("Overtime")
+				: Round To Integer(Match Time, To Nearest));
+		Else If(Current Game Mode == Game Mode(Control));
+			Global.ObjectiveHud = Custom String("Control Status: {0} - {1}", Is Control Mode Point Locked == True ? Round To Integer(
+				Match Time, To Nearest) : (Control Mode Scoring Team == All Teams ? Point Capture Percentage : Control Mode Scoring Team),
+				Custom String("{0} vs {1}", Control Mode Scoring Percentage(Team 1), Control Mode Scoring Percentage(Team 2)));
+		Else If(Current Game Mode == Game Mode(Escort));
+			Global.ObjectiveHud = Custom String("{1} - Payload Progression: {0}", Payload Progress Percentage, Match Time == 0 ? Custom String(
+				"Overtime") : Round To Integer(Match Time, To Nearest));
+		Else If(Current Game Mode == Game Mode(Hybrid));
+			Global.ObjectiveHud = Custom String("{1} - Payload Progression: {0}", Is Objective Complete(0)
+				? Payload Progress Percentage : Point Capture Percentage, Match Time == 0 ? Custom String("Overtime") : Round To Integer(
+				Match Time, To Nearest));
+		Else If(Current Game Mode == Game Mode(Capture the Flag));
+			Global.ObjectiveHud = Custom String("{1} - {0} vs {2}", Team Score(Team 1), Match Time == 0 ? Custom String("Overtime")
+				: Round To Integer(Match Time, To Nearest), Team Score(Team 2));
+			Global.ObjectiveAlternative = Current Game Mode == Game Mode(Capture the Flag) ? Custom String("{0}\r\n{1}", Custom String(
+				"Team 1: {0}", Is Flag At Base(Team 1) ? Custom String("AT BASE") : Icon String(Warning)), Custom String("Team 2: {0}",
+				Is Flag At Base(Team 2) ? Custom String("AT BASE") : Icon String(Warning))) : Null;
+		Else If(Current Game Mode == Game Mode(Elimination));
+			Global.ObjectiveHud = Custom String("{0} vs {1}", Custom String("{0} - {1}", Number of Living Players(Team 1), Team Score(Team 1)),
+				Custom String("{0} - {1}", Team Score(Team 2), Number of Living Players(Team 2)));
+		Else If(Current Game Mode == Game Mode(Team Deathmatch));
+			Global.ObjectiveHud = Custom String("{0} vs {1} - {2}", Team Score(Team 1), Team Score(Team 2), Round To Integer(Match Time,
+				To Nearest));
+		Else If(Current Game Mode == Game Mode(Deathmatch));
+			Global.ObjectiveHud = Custom String("Unknown Data");
+		End;
+		Loop;
+	}
+}
+
+rule("If Map is incompatiable")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is True For Any(Array(Map(Workshop Chamber), Map(Workshop Expanse), Map(Workshop Expanse Night), Map(Workshop Island), Map(
+			Workshop Island Night)), Current Array Element == Current Map) == True;
+	}
+
+	actions
+	{
+		Set Status(All Players(All Teams), Null, Frozen, 9999);
+		Destroy All HUD Text;
+		Wait(0.250, Ignore Condition);
+		Create HUD Text(All Players(All Teams), Custom String("{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+			Custom String("{0} {1} {0}", Icon String(Warning), Custom String(
+			"THIS MAP ALONG WITH EVERY WORKSHOP SPECIFIC MAPS ARE NOT COMPATIABLE WITH THIS CODE!")), Custom String(
+			"PLEASE DISABLE THE WORKSHOP MAPS AND RESTART THE MATCH")), Null, Null, Top, 0, Red, Red, Red, Visible To and String,
+			Default Visibility);
+		Start Camera(All Players(All Teams), Vector(0, 0, 0), Vector(0, 0, 0), 0);
+	}
+}
+
+rule("Players reach over 4")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is True For Any(Array(Number of Players(Team 1), Number of Players(Team 2)), Current Array Element >= 5) == True;
+	}
+
+	actions
+	{
+		Set Status(All Players(All Teams), Null, Frozen, 9999);
+		Destroy All HUD Text;
+		Wait(0.250, Ignore Condition);
+		Create HUD Text(All Players(All Teams), Custom String("{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+			Custom String("{0} {1} {0}", Icon String(Warning), Custom String(
+			"THE LIMIT OF PLAYERS HAS REACHED! THE CODE CAN ONLY RUN IF THERES 4 PLAYERS PER TEAM!")), Custom String(
+			"PLEASE LOWER THE PLAYER COUNT AND RESTART THE MAP")), Null, Null, Top, 0, Red, Red, Red, Visible To and String,
+			Default Visibility);
+		Start Camera(All Players(All Teams), Vector(0, 0, 0), Vector(0, 0, 0), 0);
 	}
 }
 
@@ -296,7 +410,7 @@ rule("Loop Legend Status")
 		Has Spawned(Event Player) == True;
 		disabled Event Player.LastHero != Custom String("NULL");
 		disabled Event Player.UsedAbility == False;
-		Is In Spawn Room(Event Player) == True;
+		disabled Is In Spawn Room(Event Player) == True;
 	}
 
 	actions
@@ -597,8 +711,8 @@ rule("HUD")
 
 	actions
 	{
-		Create HUD Text(Event Player, Custom String("{0} - {1} - {2}", Event Player.UltTimer, Match Time, Event Player.AbilityActive),
-			Null, Null, Left, 0, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Event Player, Global.ObjectiveHud, Current Game Mode == Game Mode(Capture the Flag)
+			? Global.ObjectiveAlternative : String(""), Null, Left, 0, Red, Red, White, Visible To and String, Default Visibility);
 		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
 			Visible To and String, Default Visibility);
 		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
@@ -607,14 +721,14 @@ rule("HUD")
 			Visible To and String, Default Visibility);
 		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"), Null, Left, 4, White, White, White,
 			Visible To and String, Default Visibility);
-		Create HUD Text(All Players(Team Of(Event Player)), Null, Custom String("{0} {1}% {2}", String("{0} {1}",
-			Event Player.ChosenLegend, Event Player), Normalized Health(Event Player) * 100, Ability Icon String(Hero Of(Event Player),
-			Button(Primary Fire))), Null, Left, 4, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(Remove From Array(All Players(Team Of(Event Player)), Event Player), Null, Custom String("{0} {1}% {2}", String(
+			"{0} {1}", Event Player.ChosenLegend, Event Player), Normalized Health(Event Player) * 100, Ability Icon String(Hero Of(
+			Event Player), Button(Primary Fire))), Null, Left, 4, Red, Red, Red, Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{0} {1}", Ability Icon String(Hero Of(Event Player), Button(Primary Fire)),
 			Event Player.MaxAmmo != 0 ? Custom String("{0}/{1}", Event Player.Ammo, Event Player.MaxAmmo) : Icon String(Question Mark),
-			Event Player.MaxAmmo), Null, Null, Left, 5, White, White, White, Visible To and String, Default Visibility);
+			Event Player.MaxAmmo), Null, Null, Left, 5, Red, Red, Red, Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{1}\r\n{2}", Null, Event Player.PlayerArmor, Event Player.PlayerHealth), Null, Null,
-			Left, 6, White, White, White, Visible To and String, Default Visibility);
+			Left, 6, Red, Red, Red, Visible To and String, Default Visibility);
 		disabled Create HUD Text(Event Player, Null, Custom String(" \r\n \r\n "), Custom String(
 			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n{0}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", Icon String(Plus)),
 			Top, 1, White, White, White, None, Default Visibility);
@@ -1921,7 +2035,7 @@ rule("Rule 57")
 
 	actions
 	{
-		Create Dummy Bot(Hero(Ana), All Teams, -1, Vector(0, 0, 0), Vector(0, 0, 0));
+		Create Dummy Bot(Hero(Ana), Opposite Team Of(Team Of(Event Player)), -1, Vector(0, 0, 0), Vector(0, 0, 0));
 		Start Holding Button(Players On Hero(Hero(Ana), All Teams), Primary Fire);
 	}
 }
