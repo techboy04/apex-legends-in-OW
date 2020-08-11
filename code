@@ -1,8 +1,28 @@
 settings
 {
+	lobby
+	{
+		Max Team 1 Players: 0
+		Max Team 2 Players: 0
+	}
+
 	modes
 	{
+		Assault
+
+		Capture the Flag
+
+		Control
+
 		Deathmatch
+
+		Elimination
+
+		Escort
+
+		Hybrid
+
+		Team Deathmatch
 
 		General
 		{
@@ -10,6 +30,25 @@ settings
 			Enemy Health Bars: Off
 			Game Mode Start: Immediately
 			Limit Roles: 2 Of Each Role Per Team
+		}
+	}
+
+	heroes
+	{
+		Team 1
+		{
+			D.Va
+			{
+				Spawn Without Mech: On
+			}
+		}
+
+		Team 2
+		{
+			D.Va
+			{
+				Spawn Without Mech: On
+			}
 		}
 	}
 }
