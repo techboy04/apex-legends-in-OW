@@ -94,6 +94,8 @@ variables
 		41: CryptoAbility
 		42: CryptoUltimate
 		43: CryptoCamera
+		44: CausticAbility
+		45: CausticUltimate
 
 	player:
 		0: ChosenLegend
@@ -148,6 +150,10 @@ variables
 		52: AvaliableLegends
 		53: SelectedLegend
 		54: CryptoCamera
+		55: CausticGasLocation
+		56: CausticUltimateLocation
+		57: GasTrapEffect
+		58: CausticUltEffect
 }
 
 subroutines
@@ -173,7 +179,7 @@ rule("Initialize Global")
 	{
 		Global.LegendsList = Array(Custom String("Bloodhound"), Custom String("Gibraltar"), Custom String("Lifeline"), Custom String(
 			"Pathfinder"), Custom String("Wraith"), Custom String("Bangalore"), Custom String("Mirage"), Custom String("Octane"),
-			Custom String("Crypto"));
+			Custom String("Crypto"), Custom String("Caustic"));
 		Global.Team1Camera = Empty Array;
 		Global.Team2Camera = Empty Array;
 		If(Global.LegendPerHero == True);
@@ -218,10 +224,10 @@ rule("Initialize per player")
 		Disable Nameplates(All Players(All Teams), All Players(All Teams));
 		Event Player.PortalLocations = Empty Array;
 		Event Player.PortalOrb = Empty Array;
-		Start Forcing Player Outlines(All Players(Team Of(Event Player)), Event Player, True, Aqua);
-		Stop Holding Button(Event Player, Primary Fire);
+		Start Forcing Player Outlines(All Players(Team Of(Event Player)), Event Player, True, Color(Aqua), Default);
+		Stop Holding Button(Event Player, Button(Primary Fire));
 		Event Player.SmokeEffects = Empty Array;
-		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, White);
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, Color(White), Default);
 		Event Player.SonarLocations = Empty Array;
 		disabled Small Message(Event Player, Custom String("Hold {0} to view {1}'s stats", Input Binding String(Button(Interact)),
 			Event Player.ChosenLegend));
@@ -328,8 +334,6 @@ rule("Loop Legend Status")
 			Event Player.LegendUltName = Custom String("Low Grav");
 			Event Player.UltIcon = Ability Icon String(Hero(Pharah), Button(Ability 1));
 			Event Player.LegendPassiveName = Custom String("Swift Mend");
-			disabled Else If(Event Player.ChosenLegend == Custom String("Octane"));
-			disabled Else If(Event Player.ChosenLegend == Custom String("Wattson"));
 		Else If(Event Player.ChosenLegend == Custom String("Crypto"));
 			Event Player.UltimateIncrease = Global.CryptoUltimate;
 			Event Player.AbilityIcon = Ability Icon String(Hero(Hanzo), Button(Ability 1));
@@ -337,8 +341,13 @@ rule("Loop Legend Status")
 			Event Player.LegendUltName = Custom String("EMP");
 			Event Player.UltIcon = Ability Icon String(Hero(Sombra), Button(Ability 2));
 			Event Player.LegendPassiveName = Custom String("Enemy Detector");
-			disabled Else If(Event Player.ChosenLegend == Custom String("Revenant"));
-			disabled Else If(Event Player.ChosenLegend == Custom String("Loba"));
+		Else If(Event Player.ChosenLegend == Custom String("Caustic"));
+			Event Player.UltimateIncrease = Global.CausticUltimate;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Hanzo), Button(Ability 1));
+			Event Player.LegendAbilityName = Custom String("Drone");
+			Event Player.LegendUltName = Custom String("EMP");
+			Event Player.UltIcon = Ability Icon String(Hero(Sombra), Button(Ability 2));
+			Event Player.LegendPassiveName = Custom String("Enemy Detector");
 		End;
 		Loop If Condition Is True;
 	}
@@ -365,7 +374,7 @@ rule("Legend Selection Menu - Next")
 	{
 		Match Round == 1;
 		Is In Setup == True;
-		Is Button Held(Event Player, Primary Fire) == True;
+		Is Button Held(Event Player, Button(Primary Fire)) == True;
 		Event Player.ChosenLegend == Custom String("Not Selected");
 		Global.LegendPerHero == False;
 	}
@@ -374,7 +383,7 @@ rule("Legend Selection Menu - Next")
 	{
 		Event Player.MenuSelection += 1;
 		Event Player.SelectedLegend = Event Player.AvaliableLegends[Event Player.MenuSelection];
-		Play Effect(Event Player, Good Pickup Effect, White, Event Player, 100);
+		Play Effect(Event Player, Good Pickup Effect, Color(White), Event Player, 100);
 		If(Count Of(Event Player.AvaliableLegends) - 1 < Event Player.MenuSelection);
 			Event Player.MenuSelection = 0;
 		End;
@@ -394,7 +403,7 @@ rule("Legend Selection Menu - Previous")
 	{
 		Match Round == 1;
 		Is In Setup == True;
-		Is Button Held(Event Player, Secondary Fire) == True;
+		Is Button Held(Event Player, Button(Secondary Fire)) == True;
 		Event Player.ChosenLegend == Custom String("Not Selected");
 		Global.LegendPerHero == False;
 	}
@@ -403,7 +412,7 @@ rule("Legend Selection Menu - Previous")
 	{
 		Event Player.MenuSelection -= 1;
 		Event Player.SelectedLegend = Event Player.AvaliableLegends[Event Player.MenuSelection];
-		Play Effect(Event Player, Good Pickup Effect, White, Event Player, 100);
+		Play Effect(Event Player, Good Pickup Effect, Color(White), Event Player, 100);
 		If(0 > Event Player.MenuSelection);
 			Event Player.MenuSelection = Count Of(Event Player.AvaliableLegends) - 1;
 	}
@@ -422,7 +431,7 @@ rule("Legend Selection Menu - Lock in")
 	{
 		Match Round == 1;
 		Is In Setup == True;
-		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Button(Interact)) == True;
 		Event Player.ChosenLegend == Custom String("Not Selected");
 		Global.LegendPerHero == False;
 	}
@@ -431,12 +440,12 @@ rule("Legend Selection Menu - Lock in")
 	{
 		If(Event Player.SelectedLegend == 0);
 			Event Player.ChosenLegend = Event Player.AvaliableLegends[Random Integer(0, Count Of(Event Player.AvaliableLegends))];
-			Play Effect(Event Player, Good Pickup Effect, White, Event Player, 100);
+			Play Effect(Event Player, Good Pickup Effect, Color(White), Event Player, 100);
 			Modify Player Variable(All Players(Team Of(Event Player)), AvaliableLegends, Remove From Array By Value,
 				Event Player.ChosenLegend);
 		Else;
 			Event Player.ChosenLegend = Event Player.SelectedLegend;
-			Play Effect(Event Player, Good Pickup Effect, White, Event Player, 100);
+			Play Effect(Event Player, Good Pickup Effect, Color(White), Event Player, 100);
 			Modify Player Variable(All Players(Team Of(Event Player)), AvaliableLegends, Remove From Array By Value,
 				Event Player.ChosenLegend);
 	}
@@ -461,7 +470,7 @@ rule("Legend Selection Menu - Not Locked in times up")
 	actions
 	{
 		Event Player.ChosenLegend = Event Player.AvaliableLegends[Random Integer(1, Count Of(Event Player.AvaliableLegends))];
-		Play Effect(Event Player, Good Pickup Effect, White, Event Player, 100);
+		Play Effect(Event Player, Good Pickup Effect, Color(White), Event Player, 100);
 		Modify Player Variable(All Players(Team Of(Event Player)), AvaliableLegends, Remove From Array By Value,
 			Event Player.ChosenLegend);
 	}
@@ -597,12 +606,12 @@ rule("Initialize Player spots - Character Selection")
 	{
 		Wait(0.250, Abort When False);
 		If(Global.ReplaceAbility1WithSprint == True);
-			Disallow Button(Event Player, Ability 1);
+			Disallow Button(Event Player, Button(Ability 1));
 		End;
-		Disallow Button(All Players(All Teams), Ability 2);
-		Disallow Button(All Players(All Teams), Ultimate);
-		Disallow Button(Event Player, Primary Fire);
-		Disallow Button(Event Player, Secondary Fire);
+		Disallow Button(All Players(All Teams), Button(Ability 2));
+		Disallow Button(All Players(All Teams), Button(Ultimate));
+		Disallow Button(Event Player, Button(Primary Fire));
+		Disallow Button(Event Player, Button(Secondary Fire));
 		Set Invisible(Event Player, All);
 		Set Status(Event Player, Null, Hacked, 9999);
 		Set Status(Event Player, Null, Rooted, 9999);
@@ -618,18 +627,19 @@ rule("Initialize Player spots - Character Selection")
 			Team Of(Event Player)).ChosenLegend), Custom String("{0} - {1}", Players In Slot(1, Team Of(Event Player)), Players In Slot(1,
 			Team Of(Event Player)).ChosenLegend)), Custom String("{1}\r\n{2}", Null, Custom String("{0} - {1}", Players In Slot(2, Team Of(
 			Event Player)), Players In Slot(2, Team Of(Event Player)).ChosenLegend), Custom String("{0} - {1}", Players In Slot(3, Team Of(
-			Event Player)), Players In Slot(3, Team Of(Event Player)).ChosenLegend))), Null, Null, Top, 1, Red, Red, Red,
-			Visible To and String, Default Visibility);
+			Event Player)), Players In Slot(3, Team Of(Event Player)).ChosenLegend))), Null, Null, Top, 1, Color(Red), Color(Red), Color(
+			Red), Visible To and String, Default Visibility);
 		If(Global.LegendPerHero == True);
-			Create HUD Text(Event Player, Custom String("Crouch to change hero/legend"), Null, Null, Top, 2, Red, White, White,
-				Visible To and String, Default Visibility);
+			Create HUD Text(Event Player, Custom String("Crouch to change hero/legend"), Null, Null, Top, 2, Color(Red), Color(White), Color(
+				White), Visible To and String, Default Visibility);
 		Else;
 			Create HUD Text(Event Player, Event Player.ChosenLegend != Custom String("Not Selected") ? Custom String("Locked in: {0}",
 				Event Player.ChosenLegend) : Custom String("Selecting Legend: {0}", Event Player.SelectedLegend == 0 ? Custom String("Random")
 				: Event Player.SelectedLegend), Event Player.ChosenLegend != Custom String("Not Selected") ? Custom String(" \r\n\r\n ")
 				: Custom String("{0}\r\n{1}\r\n{2}", Custom String("{0} - Next Legend", Input Binding String(Button(Primary Fire))),
 				Custom String("{0} - Previous Legend", Input Binding String(Button(Secondary Fire))), Custom String("{0} - Lock on Legend",
-				Input Binding String(Button(Interact)))), Null, Top, 2, Red, White, White, Visible To and String, Default Visibility);
+				Input Binding String(Button(Interact)))), Null, Top, 2, Color(Red), Color(White), Color(White), Visible To and String,
+				Default Visibility);
 			Event Player.AvaliableLegends = Global.LegendsList;
 			Event Player.MenuSelection = 0;
 			Event Player.SelectedLegend = Event Player.AvaliableLegends[0];
@@ -672,7 +682,7 @@ rule("Crouch to Change - Character Selection")
 	{
 		Match Round == 1;
 		Is In Setup == True;
-		Is Button Held(Event Player, Crouch) == True;
+		Is Button Held(Event Player, Button(Crouch)) == True;
 	}
 
 	actions
@@ -702,8 +712,8 @@ rule("Time runs out - Character Selection")
 
 	actions
 	{
-		Allow Button(Event Player, Primary Fire);
-		Allow Button(Event Player, Secondary Fire);
+		Allow Button(Event Player, Button(Primary Fire));
+		Allow Button(Event Player, Button(Secondary Fire));
 		Stop Camera(All Players(All Teams));
 		Clear Status(All Players(All Teams), Rooted);
 		Clear Status(All Players(All Teams), Hacked);
@@ -738,7 +748,7 @@ rule("Teammate player names")
 		Create In-World Text(All Players(Team Of(Event Player)), Custom String("{1}% {0} {2}", Event Player,
 			Global.UltimateGenerationType == True ? Event Player.UltimateGen : Ultimate Charge Percent(Event Player), Custom String(
 			"{0}{1}", Icon String(Heart), Normalized Health(Event Player) * 100)), Event Player, 1, Clip Against Surfaces,
-			Visible To Position and String, Aqua, Default Visibility);
+			Visible To Position and String, Color(Aqua), Default Visibility);
 	}
 }
 
@@ -774,8 +784,8 @@ rule("Mission Objective Loop")
 				"Team 1: {0}", Is Flag At Base(Team 1) ? Custom String("AT BASE") : Icon String(Warning)), Custom String("Team 2: {0}",
 				Is Flag At Base(Team 2) ? Custom String("AT BASE") : Icon String(Warning))) : Null;
 		Else If(Current Game Mode == Game Mode(Elimination));
-			Global.ObjectiveHud = Custom String("{0} vs {1}", Custom String("{0} - {1}", Number of Living Players(Team 1), Team Score(Team 1)),
-				Custom String("{0} - {1}", Team Score(Team 2), Number of Living Players(Team 2)));
+			Global.ObjectiveHud = Custom String("{0} vs {1}", Custom String("{0} - {1}", Number Of Living Players(Team 1), Team Score(Team 1)),
+				Custom String("{0} - {1}", Team Score(Team 2), Number Of Living Players(Team 2)));
 		Else If(Current Game Mode == Game Mode(Team Deathmatch));
 			Global.ObjectiveHud = Custom String("{0} vs {1} - {2}", Team Score(Team 1), Team Score(Team 2), Round To Integer(Match Time,
 				To Nearest));
@@ -807,8 +817,8 @@ rule("If Map is incompatiable")
 		Create HUD Text(All Players(All Teams), Custom String("{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
 			Custom String("{0} {1} {0}", Icon String(Warning), Custom String(
 			"THIS MAP ALONG WITH EVERY WORKSHOP SPECIFIC MAPS ARE NOT COMPATIABLE WITH THIS CODE!")), Custom String(
-			"PLEASE DISABLE THE WORKSHOP MAPS AND RESTART THE MATCH")), Null, Null, Top, 0, Red, Red, Red, Visible To and String,
-			Default Visibility);
+			"PLEASE DISABLE THE WORKSHOP MAPS AND RESTART THE MATCH")), Null, Null, Top, 0, Color(Red), Color(Red), Color(Red),
+			Visible To and String, Default Visibility);
 		Start Camera(All Players(All Teams), Vector(0, 0, 0), Vector(0, 0, 0), 0);
 	}
 }
@@ -822,7 +832,7 @@ rule("Players reach over 4")
 
 	conditions
 	{
-		disabled Is True For Any(Array(Number of Players(Team 1), Number of Players(Team 2)), Current Array Element >= 5) == True;
+		disabled Is True For Any(Array(Number Of Players(Team 1), Number Of Players(Team 2)), Current Array Element >= 5) == True;
 		Count Of(Filtered Array(All Players(Team 1), Is Dummy Bot(Current Array Element) == False)) > 4;
 		Count Of(Filtered Array(All Players(Team 2), Is Dummy Bot(Current Array Element) == False)) > 4;
 	}
@@ -835,8 +845,8 @@ rule("Players reach over 4")
 		Create HUD Text(All Players(All Teams), Custom String("{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
 			Custom String("{0} {1} {0}", Icon String(Warning), Custom String(
 			"THE LIMIT OF PLAYERS HAS REACHED! THE CODE CAN ONLY RUN IF THERES 4 PLAYERS PER TEAM!")), Custom String(
-			"PLEASE LOWER THE PLAYER COUNT AND RESTART THE MAP")), Null, Null, Top, 0, Red, Red, Red, Visible To and String,
-			Default Visibility);
+			"PLEASE LOWER THE PLAYER COUNT AND RESTART THE MAP")), Null, Null, Top, 0, Color(Red), Color(Red), Color(Red),
+			Visible To and String, Default Visibility);
 		Start Camera(All Players(All Teams), Vector(0, 0, 0), Vector(0, 0, 0), 0);
 	}
 }
@@ -852,66 +862,78 @@ rule("Workshop Settings")
 	{
 		"General Settings"
 		Global.LegendPerHero = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
-			"Legend Per Hero (Each Hero is a Legend)"), True);
+			"Legend Per Hero (Each Hero is a Legend)"), True, 0);
 		Global.UltimateGenerationType = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
-			"Use Custom Ultimate Generation"), True);
+			"Use Custom Ultimate Generation"), True, 0);
 		Global.UltGenRewards = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Use Ult Generation Rewards"),
-			True);
+			True, 0);
 		Global.ReplaceAbility1WithSprint = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
-			"Replace Ability 1 with Sprint"), True);
-		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100);
+			"Replace Ability 1 with Sprint"), True, 0);
+		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100,
+			0);
 		"Bloodhound Settings"
 		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
-			0, 100);
+			0, 100, 0);
 		Global.BloodhoundUltimate = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Beast of the Hunt Generation"),
-			180, 0, 500);
-		Global.SonarAngle = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Angle"), 45, 10, 360);
-		Global.SprintIncrease = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Distance"), 100, 10, 300);
+			180, 0, 500, 0);
+		Global.SonarAngle = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Angle"), 45, 10, 360, 0);
+		Global.SprintIncrease = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Distance"), 100, 10, 300, 0);
 		"Bangalore Settings"
-		Global.BangaloreSmokeDuration = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Smoke Duration"), 23, 0, 100);
+		Global.BangaloreSmokeDuration = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Smoke Duration"), 23, 0, 100,
+			0);
 		Global.BangaloreAbility = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Smoke Launcher Cooldown"), 10, 0,
-			100);
+			100, 0);
 		Global.BangaloreUltimate = Workshop Setting Integer(Custom String("Bangalore"), Custom String(
-			"Rolling Thunder Ultimate Generation"), 270, 0, 500);
-		Global.BangalorePassive = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Double Time Cooldown"), 100, 0, 500);
+			"Rolling Thunder Ultimate Generation"), 270, 0, 500, 0);
+		Global.BangalorePassive = Workshop Setting Integer(Custom String("Bangalore"), Custom String("Double Time Cooldown"), 100, 0, 500,
+			0);
 		"Wraith Settings"
-		Global.WraithAbility = Workshop Setting Integer(Custom String("Wraith"), Custom String("Into the Void Cooldown"), 25, 0, 100);
+		Global.WraithAbility = Workshop Setting Integer(Custom String("Wraith"), Custom String("Into the Void Cooldown"), 25, 0, 100, 0);
 		Global.WraithUltimate = Workshop Setting Integer(Custom String("Wraith"), Custom String("Dimensional Rift Generation"), 150, 0,
-			500);
+			500, 0);
 		Global.DimensionalRiftDuration = Workshop Setting Integer(Custom String("Wraith"), Custom String(
-			"Dimensional Rift Ultimate Duration"), 60, 0, 100);
+			"Dimensional Rift Ultimate Duration"), 60, 0, 100, 0);
 		"Gibraltar Settings"
 		Global.GibraltarAbility = Workshop Setting Integer(Custom String("Gibraltar"), Custom String("Dome of Protection Cooldown"), 30, 0,
-			100);
+			100, 0);
 		Global.GibraltarUltimate = Workshop Setting Integer(Custom String("Gibraltar"), Custom String(
-			"Defensive Bombardment Ultimate Generation"), 180, 0, 500);
+			"Defensive Bombardment Ultimate Generation"), 180, 0, 500, 0);
 		"Lifeline Settings"
-		Global.DOCDuration = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Duration"), 20, 0, 100);
-		Global.LifelineAbility = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Heal Drone"), 45, 0, 100);
+		Global.DOCDuration = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Duration"), 20, 0, 100, 0);
+		Global.LifelineAbility = Workshop Setting Integer(Custom String("Lifeline"), Custom String("D.O.C. Heal Drone"), 45, 0, 100, 0);
 		Global.LifelineUltimate = Workshop Setting Integer(Custom String("Lifeline"), Custom String("Massive Heal Ultimate Generation"),
-			360, 0, 500);
-		Global.LifelinePassive = Workshop Setting Integer(Custom String("Lifeline"), Custom String("Combat Revive Cooldown"), 10, 0, 100);
+			360, 0, 500, 0);
+		Global.LifelinePassive = Workshop Setting Integer(Custom String("Lifeline"), Custom String("Combat Revive Cooldown"), 10, 0, 100,
+			0);
 		"Pathfinder Settings"
 		Global.PathfinderAbility = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Grappling Hook Cooldown"), 35, 0,
-			100);
+			100, 0);
 		Global.PathfinderUltimate = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Zipline Gun Ultimate Generation"),
-			120, 0, 500);
-		Global.ZiplineMeters = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Zipline Gun Max Range"), 100, 0, 500);
+			120, 0, 500, 0);
+		Global.ZiplineMeters = Workshop Setting Integer(Custom String("Pathfinder"), Custom String("Zipline Gun Max Range"), 100, 0, 500,
+			0);
 		"Mirage Settings"
-		Global.MirageAbility = Workshop Setting Integer(Custom String("Mirage"), Custom String("Psyche Out Cooldown"), 15, 0, 100);
+		Global.MirageAbility = Workshop Setting Integer(Custom String("Mirage"), Custom String("Psyche Out Cooldown"), 15, 0, 100, 0);
 		Global.MirageUltimate = Workshop Setting Integer(Custom String("Mirage"), Custom String("Self Swap Ultimate Generation"), 60, 0,
-			500);
-		Global.MiragePassive = Workshop Setting Integer(Custom String("Mirage"), Custom String("Now You See Me Cooldown"), 120, 0, 500);
+			500, 0);
+		Global.MiragePassive = Workshop Setting Integer(Custom String("Mirage"), Custom String("Now You See Me Cooldown"), 120, 0, 500, 0);
 		"Octane Settings"
-		Global.OctaneAbility = Workshop Setting Integer(Custom String("Octane"), Custom String("Stim Cooldown"), 2, 0, 100);
+		Global.OctaneAbility = Workshop Setting Integer(Custom String("Octane"), Custom String("Stim Cooldown"), 2, 0, 100, 0);
 		Global.OctaneUltimate = Workshop Setting Integer(Custom String("Octane"), Custom String("Low Grav Ultimate Generation"), 60, 0,
-			500);
-		Global.OctanePassiveHeal = Workshop Setting Integer(Custom String("Octane"), Custom String("Swift Mend Heal Amount"), 1, 0, 100);
-		Global.OctaneAbilityLength = Workshop Setting Integer(Custom String("Octane"), Custom String("Stim Ability Duration"), 6, 0, 100);
+			500, 0);
+		Global.OctanePassiveHeal = Workshop Setting Integer(Custom String("Octane"), Custom String("Swift Mend Heal Amount"), 1, 0, 100,
+			0);
+		Global.OctaneAbilityLength = Workshop Setting Integer(Custom String("Octane"), Custom String("Stim Ability Duration"), 6, 0, 100,
+			0);
 		"Crypto Settings"
-		Global.CryptoAbility = Workshop Setting Integer(Custom String("Crypto"), Custom String("Drone Cooldown"), 10, 0, 100);
-		Global.CryptoUltimate = Workshop Setting Integer(Custom String("Crypto"), Custom String("EMP Ultimate Generation"), 180, 0, 500);
-		Global.CryptoCamera = Workshop Setting Integer(Custom String("Crypto"), Custom String("Enemy Detection Radius"), 5, 0, 500);
+		Global.CryptoAbility = Workshop Setting Integer(Custom String("Crypto"), Custom String("Drone Cooldown"), 10, 0, 100, 0);
+		Global.CryptoUltimate = Workshop Setting Integer(Custom String("Crypto"), Custom String("EMP Ultimate Generation"), 180, 0, 500,
+			0);
+		Global.CryptoCamera = Workshop Setting Integer(Custom String("Crypto"), Custom String("Enemy Detection Radius"), 5, 0, 500, 0);
+		"Caustic Settings"
+		Global.CausticAbility = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Trap Cooldown"), 25, 0, 100, 0);
+		Global.CausticUltimate = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Grenade Ultimate Generation"), 120,
+			0, 500, 0);
 	}
 }
 
@@ -967,7 +989,7 @@ rule("Sprinting")
 	{
 		disabled Event Player.UsedAbility == False;
 		Event Player.AbilityActive == False;
-		Is Button Held(Event Player, Ability 1) == True;
+		Is Button Held(Event Player, Button(Ability 1)) == True;
 		Event Player.PassiveActive == False;
 		Event Player.UltActive == False;
 		Global.ReplaceAbility1WithSprint == True;
@@ -1089,7 +1111,8 @@ rule("Cooldown Timer")
 			Event Player.AbilityCooldown = Global.BangaloreAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Mirage"));
 			Event Player.AbilityCooldown = Global.MirageAbility;
-			disabled Else If(Event Player.ChosenLegend == Custom String("Caustic"));
+		Else If(Event Player.ChosenLegend == Custom String("Caustic"));
+			Event Player.AbilityCooldown = Global.CausticAbility;
 			disabled Else If(Event Player.ChosenLegend == Custom String("Octane"));
 			disabled Else If(Event Player.ChosenLegend == Custom String("Wattson"));
 			disabled Else If(Event Player.ChosenLegend == Custom String("Crypto"));
@@ -1109,7 +1132,7 @@ disabled rule("Legend Info in Spawn room")
 
 	conditions
 	{
-		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Button(Interact)) == True;
 		Is In Spawn Room(Event Player) == True;
 	}
 
@@ -1132,7 +1155,7 @@ disabled rule("Legend Info in Spawn room")
 
 	conditions
 	{
-		Is Button Held(Event Player, Interact) == False;
+		Is Button Held(Event Player, Button(Interact)) == False;
 		Is In Spawn Room(Event Player) == True;
 	}
 
@@ -1155,7 +1178,7 @@ disabled rule("Legend Info in Spawn room")
 
 	conditions
 	{
-		Is Button Held(Event Player, Interact) == False;
+		Is Button Held(Event Player, Button(Interact)) == False;
 		Is In Spawn Room(Event Player) == False;
 	}
 
@@ -1181,8 +1204,8 @@ rule("Information HUD")
 			Custom String("{0}\r\n{1}\r\n{2}", Custom String("{2} Ability: {0} - {1} second cooldown", String("{0} {1}",
 			Event Player.AbilityIcon, Event Player.LegendAbilityName), Event Player.AbilityCooldown, Input Binding String(Button(
 			Ability 2))), Custom String("{2} Ultimate: {0} {1}", Event Player.UltIcon, Event Player.LegendUltName, Input Binding String(
-			Button(Ultimate))), Custom String("Passive: {0}", Event Player.LegendPassiveName))), Null, Null, Top, 0, White, White, White,
-			Visible To and String, Default Visibility);
+			Button(Ultimate))), Custom String("Passive: {0}", Event Player.LegendPassiveName))), Null, Null, Top, 0, Color(White), Color(
+			White), Color(White), Visible To and String, Default Visibility);
 	}
 }
 
@@ -1220,15 +1243,17 @@ rule("HUD")
 	{
 		Disable Messages(Event Player);
 		Create HUD Text(Event Player, Global.ObjectiveHud, Current Game Mode == Game Mode(Capture the Flag)
-			? Global.ObjectiveAlternative : String(""), Null, Left, 0, Red, Red, White, Visible To and String, Default Visibility);
+			? Global.ObjectiveAlternative : String(""), Null, Left, 0, Color(Red), Color(Red), Color(White), Visible To and String,
+			Default Visibility);
 		Create HUD Text(Event Player, Null, Custom String(
 			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"),
-			Null, Left, 3, White, White, White, Visible To and String, Default Visibility);
+			Null, Left, 3, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 		disabled Wait(0.250, Ignore Condition);
 		If(Is Dummy Bot(Event Player) == False);
 			Create HUD Text(Remove From Array(All Players(Team Of(Event Player)), Event Player), Null, Custom String("{0} {1}% {2}", String(
 				"{0} {1}", Event Player.ChosenLegend, Event Player), Normalized Health(Event Player) * 100, Ability Icon String(Hero Of(
-				Event Player), Button(Primary Fire))), Null, Left, 5, Red, Red, Red, Visible To and String, Default Visibility);
+				Event Player), Button(Primary Fire))), Null, Left, 5, Color(Red), Color(Red), Color(Red), Visible To and String,
+				Default Visibility);
 		End;
 		Create HUD Text(Event Player, Global.ReplaceAbility1WithSprint == True ? Custom String("{0} - {1}", Ability Icon String(Hero Of(
 			Event Player), Button(Primary Fire)), Event Player.MaxAmmo == 0 ? Icon String(Question Mark) : Custom String("{0}/{1}",
@@ -1237,34 +1262,35 @@ rule("HUD")
 			Event Player.MaxAmmo), Custom String("{0} {1}", Ability Icon String(Hero Of(Event Player), Button(Ability 1)), Is True For Any(
 			Array(Hero(Symmetra), Hero(Tracer), Hero(Junkrat)), Hero Of(Event Player) == Current Array Element) ? Ability Charge(
 			Event Player, Button(Ability 1)) : (Ability Cooldown(Event Player, Button(Ability 1)) == 0 ? Input Binding String(Button(
-			Ability 1)) : Ability Cooldown(Event Player, Button(Ability 1))))), Null, Null, Left, 6, Red, Red, Red, Visible To and String,
-			Default Visibility);
+			Ability 1)) : Ability Cooldown(Event Player, Button(Ability 1))))), Null, Null, Left, 6, Color(Red), Color(Red), Color(Red),
+			Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{1}\r\n{2}", Null, Event Player.PlayerArmor, Event Player.PlayerHealth), Null, Null,
-			Left, 7, Red, Red, Red, Visible To and String, Default Visibility);
+			Left, 7, Color(Red), Color(Red), Color(Red), Visible To and String, Default Visibility);
 		disabled Wait(0.250, Ignore Condition);
 		Create HUD Text(Event Player, Null, Custom String(
 			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n "),
-			Null, Left, 8, White, White, White, None, Default Visibility);
+			Null, Left, 8, Color(White), Color(White), Color(White), None, Default Visibility);
 		"If Game HUD is disabled"
 		Create HUD Text(Event Player, Null, Custom String(" \r\n \r\n "), Custom String(
 			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
 			Icon String(Plus), Event Player.Damage > 0 ? Custom String("{0}", Round To Integer(Event Player.Damage, To Nearest))
-			: Custom String("")), Top, 1, White, White, White, Visible To and String, Default Visibility);
+			: Custom String("")), Top, 1, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{0}", Global.UltimateGenerationType == True ? (
 			Event Player.UltimateGen >= 100 ? Event Player.UltIcon : Custom String("{0}%", Round To Integer(Event Player.UltimateGen,
 			To Nearest))) : (Ultimate Charge Percent(Event Player) >= 100 ? Event Player.UltIcon : Custom String("{0}%",
-			Ultimate Charge Percent(Event Player)))), Null, Null, Top, 2, White, White, White, Visible To and String, Default Visibility);
-		Create HUD Text(Event Player, Custom String("{1}", Null, Ultimate Charge Percent(Event Player) == 100 ? Input Binding String(
-			Button(Ultimate)) : Icon String(No)), Custom String(""), Custom String(""), Top, 3, White, White, White, Visible To and String,
+			Ultimate Charge Percent(Event Player)))), Null, Null, Top, 2, Color(White), Color(White), Color(White), Visible To and String,
 			Default Visibility);
+		Create HUD Text(Event Player, Custom String("{1}", Null, Ultimate Charge Percent(Event Player) == 100 ? Input Binding String(
+			Button(Ultimate)) : Icon String(No)), Custom String(""), Custom String(""), Top, 3, Color(White), Color(White), Color(White),
+			Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}",
 			Event Player.UsedAbility == False ? Event Player.AbilityIcon : Event Player.AbilityCooldown)), Custom String(
 			"                                                                                                                             {0}",
-			String("")), Custom String(""), Top, 4, White, White, White, Visible To and String, Default Visibility);
+			String("")), Custom String(""), Top, 4, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}", Event Player.UsedAbility == False ? Input Binding String(
 			Button(Ability 2)) : Icon String(No))), Custom String(
 			"                                                                                                                             {0}",
-			String("")), Custom String(""), Top, 5, White, White, White, Visible To and String, Default Visibility);
+			String("")), Custom String(""), Top, 5, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 		Wait(5, Ignore Condition);
 		Enable Messages(Event Player);
 	}
@@ -1395,7 +1421,7 @@ rule("Damage World Text")
 		disabled Destroy In-World Text(Last Text ID);
 		disabled Create In-World Text(Event Player, Event Player.PortalLocations, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
 			Event Player) + Facing Direction Of(Event Player) * 1, Event Player, All Players(All Teams), True), 1, Clip Against Surfaces,
-			Visible To Position and String, White, Default Visibility);
+			Visible To Position and String, Color(White), Default Visibility);
 		Wait(2, Restart When True);
 		disabled Destroy In-World Text(Last Text ID);
 		Event Player.Damage = 0;
@@ -1422,7 +1448,7 @@ rule("Bloodhound Sonar")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Bloodhound");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -1444,7 +1470,7 @@ rule("Bloodhound Sonar")
 			Current Array Element) <= 100);
 		Big Message(Event Player, Custom String("{0} enemies located!", Count Of(Event Player.SonarFiltered)));
 		For Player Variable(Event Player, Array_I, 0, Count Of(Event Player.SonarFiltered), 1);
-			Create Icon(All Players(Team Of(Event Player)), Event Player.SonarFiltered[Event Player.Array_I], Warning, None, Red, True);
+			Create Icon(All Players(Team Of(Event Player)), Event Player.SonarFiltered[Event Player.Array_I], Warning, None, Color(Red), True);
 			Modify Player Variable(Event Player, SonarLocations, Append To Array, Last Created Entity);
 		End;
 		Wait(3, Ignore Condition);
@@ -1470,7 +1496,7 @@ rule("Bloodhound Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Bloodhound");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -1485,11 +1511,11 @@ rule("Bloodhound Ult")
 
 	actions
 	{
-		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, True, Red);
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, True, Color(Red), Default);
 		Event Player.UltTimer = 15;
 		Event Player.UsingUlt = True;
 		Set Ultimate Charge(Event Player, 0);
-		Create Effect(Event Player, Sphere, White, Event Player, 3, Visible To Position and Radius);
+		Create Effect(Event Player, Sphere, Color(White), Event Player, 3, Visible To Position and Radius);
 		Event Player.BombardmentLastCreated = Last Created Entity;
 		Set Damage Dealt(Event Player, 150);
 		Set Move Speed(Event Player, 200);
@@ -1498,7 +1524,7 @@ rule("Bloodhound Ult")
 		Set Move Speed(Event Player, 100);
 		Set Damage Dealt(Event Player, 100);
 		Destroy Effect(Event Player.BombardmentLastCreated);
-		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, Red);
+		Start Forcing Player Outlines(All Players(Opposite Team Of(Team Of(Event Player))), Event Player, False, Color(Red), Default);
 		If(Global.UltimateGenerationType == True);
 			Event Player.UltimateGen = 0;
 		End;
@@ -1548,7 +1574,7 @@ rule("Wraith Phase")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Wraith");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -1563,21 +1589,21 @@ rule("Wraith Phase")
 	actions
 	{
 		Event Player.AbilityActive = True;
-		Disallow Button(Event Player, Primary Fire);
-		Disallow Button(Event Player, Secondary Fire);
+		Disallow Button(Event Player, Button(Primary Fire));
+		Disallow Button(Event Player, Button(Secondary Fire));
 		Event Player.UsedAbility = True;
 		Wait(1.250, Ignore Condition);
-		Create Effect(All Players(All Teams), Sparkles, White, Event Player, 1, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Sparkles, Color(White), Event Player, 1, Visible To Position and Radius);
 		Event Player.LastEffectPhase = Last Created Entity;
-		Create Effect(Event Player, Sphere, White, Event Player, 1, Visible To Position and Radius);
+		Create Effect(Event Player, Sphere, Color(White), Event Player, 1, Visible To Position and Radius);
 		Set Status(Event Player, Null, Phased Out, 9999);
 		Set Move Speed(Event Player, 130);
 		Set Invisible(Event Player, All);
 		Wait(4, Ignore Condition);
 		Destroy Effect(Last Created Entity);
 		Set Move Speed(Event Player, 100);
-		Allow Button(Event Player, Primary Fire);
-		Allow Button(Event Player, Secondary Fire);
+		Allow Button(Event Player, Button(Primary Fire));
+		Allow Button(Event Player, Button(Secondary Fire));
 		Set Invisible(Event Player, None);
 		Clear Status(Event Player, Phased Out);
 		Destroy Effect(Event Player.LastEffectPhase);
@@ -1599,7 +1625,7 @@ rule("Wraith Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Wraith");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -1618,10 +1644,10 @@ rule("Wraith Ult")
 		Event Player.UltTimer = 15;
 		Event Player.UsingUlt = True;
 		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
-		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Create Effect(All Players(All Teams), Ring, Color(Purple), Position Of(Event Player), 1, None);
 		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
-		Disallow Button(Event Player, Primary Fire);
-		Disallow Button(Event Player, Secondary Fire);
+		Disallow Button(Event Player, Button(Primary Fire));
+		Disallow Button(Event Player, Button(Secondary Fire));
 		If(Global.UltimateGenerationType == True);
 			Event Player.UltimateGen = 0;
 		End;
@@ -1671,7 +1697,7 @@ disabled rule("Wraith Phase Constantly Set Pos")
 	actions
 	{
 		Wait(0.250, Ignore Condition);
-		Create Effect(All Players(All Teams), Sparkles, White, Event Player, 2, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Sparkles, Color(White), Event Player, 2, Visible To Position and Radius);
 		Loop If Condition Is True;
 	}
 }
@@ -1690,19 +1716,19 @@ rule("Wraith Place end portal")
 		Event Player.ChosenLegend == Custom String("Wraith");
 		Event Player.UsingUlt == True;
 		Event Player.UltTimer > 0;
-		Is Button Held(Event Player, Primary Fire) == True;
+		Is Button Held(Event Player, Button(Primary Fire)) == True;
 		Count Of(Event Player.PortalLocations) != 2;
 	}
 
 	actions
 	{
 		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
-		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Create Effect(All Players(All Teams), Ring, Color(Purple), Position Of(Event Player), 1, None);
 		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
 		Event Player.UltTimer = 999;
 		Wait(0.250, Ignore Condition);
-		Allow Button(Event Player, Primary Fire);
-		Allow Button(Event Player, Secondary Fire);
+		Allow Button(Event Player, Button(Primary Fire));
+		Allow Button(Event Player, Button(Secondary Fire));
 		Wait(Global.DimensionalRiftDuration, Ignore Condition);
 		While(Event Player.PortalLocations != Empty Array);
 			Destroy Effect(First Of(Event Player.PortalLocations));
@@ -1713,8 +1739,8 @@ rule("Wraith Place end portal")
 			Modify Player Variable(Event Player, PortalOrb, Remove From Array By Index, False);
 		End;
 		Event Player.UsingUlt = False;
-		Press Button(Event Player, Primary Fire);
-		Press Button(Event Player, Ultimate);
+		Press Button(Event Player, Button(Primary Fire));
+		Press Button(Event Player, Button(Ultimate));
 	}
 }
 
@@ -1729,7 +1755,7 @@ rule("Wraith Teleporter")
 
 	conditions
 	{
-		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Button(Interact)) == True;
 		Count Of(Event Player.PortalLocations) == 2;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -1743,14 +1769,14 @@ rule("Wraith Teleporter")
 
 	actions
 	{
-		Disallow Button(Event Player, Interact);
+		Disallow Button(Event Player, Button(Interact));
 		If(Distance Between(Position Of(Event Player), Event Player.PortalLocations[0]) <= 3);
 			Teleport(Event Player, Event Player.PortalLocations[1]);
 		Else If(Distance Between(Position Of(Event Player), Event Player.PortalLocations[1]) <= 3);
 			Teleport(Event Player, Event Player.PortalLocations[0]);
 		End;
 		Wait(1, Ignore Condition);
-		Allow Button(Event Player, Interact);
+		Allow Button(Event Player, Button(Interact));
 	}
 }
 
@@ -1774,12 +1800,12 @@ rule("Wraith Ult time runs out")
 	actions
 	{
 		Modify Player Variable(Event Player, PortalLocations, Append To Array, Position Of(Event Player));
-		Create Effect(All Players(All Teams), Ring, Purple, Position Of(Event Player), 1, None);
+		Create Effect(All Players(All Teams), Ring, Color(Purple), Position Of(Event Player), 1, None);
 		Modify Player Variable(Event Player, PortalOrb, Append To Array, Last Created Entity);
 		Event Player.UltTimer = 0;
 		Wait(0.250, Ignore Condition);
-		Allow Button(Event Player, Primary Fire);
-		Allow Button(Event Player, Secondary Fire);
+		Allow Button(Event Player, Button(Primary Fire));
+		Allow Button(Event Player, Button(Secondary Fire));
 		Wait(Global.DimensionalRiftDuration, Ignore Condition);
 		While(Event Player.PortalLocations != Empty Array);
 			Destroy Effect(First Of(Event Player.PortalLocations));
@@ -1813,7 +1839,7 @@ rule("Gibraltar Dome Shield")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Gibraltar");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -1830,7 +1856,7 @@ rule("Gibraltar Dome Shield")
 		Event Player.AbilityActive = True;
 		Event Player.UsedAbility = True;
 		Event Player.AbilityLocation = Position Of(Event Player);
-		Create Effect(All Players(All Teams), Sphere, Blue, Event Player.AbilityLocation, 6, None);
+		Create Effect(All Players(All Teams), Sphere, Color(Blue), Event Player.AbilityLocation, 6, None);
 		Wait(12, Ignore Condition);
 		Destroy Effect(Last Created Entity);
 		Event Player.AbilityLocation = 0;
@@ -1852,7 +1878,7 @@ rule("Gibraltar Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Gibraltar");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -1870,19 +1896,20 @@ rule("Gibraltar Ult")
 		Event Player.UsingUlt = True;
 		Event Player.BombardmentLocation = Ray Cast Hit Position(Eye Position(Event Player), Eye Position(Event Player)
 			+ Facing Direction Of(Event Player) * 30, All Players(All Teams), Event Player, True);
-		Create Effect(All Players(All Teams), Sphere, Orange, Event Player.BombardmentLocation, 15, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Sphere, Color(Orange), Event Player.BombardmentLocation, 15, Visible To Position and Radius);
 		Event Player.BombardmentLastCreated = Last Created Entity;
 		Wait(3, Ignore Condition);
 		Destroy Effect(Event Player.BombardmentLastCreated);
-		Create Effect(All Players(All Teams), Light Shaft, Red, Vector(X Component Of(Event Player.BombardmentLocation), Y Component Of(
-			Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Light Shaft, Color(Red), Vector(X Component Of(Event Player.BombardmentLocation),
+			Y Component Of(Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15,
+			Visible To Position and Radius);
 		Event Player.BombardmentLastCreated = Last Created Entity;
 		Event Player.AbilityActive = True;
 		Wait(6, Ignore Condition);
 		Event Player.AbilityActive = False;
 		Destroy Effect(Event Player.BombardmentLastCreated);
 		Event Player.UsingUlt = False;
-		Press Button(Event Player, Ultimate);
+		Press Button(Event Player, Button(Ultimate));
 		If(Global.UltimateGenerationType == True);
 			Event Player.UltimateGen = 0;
 		End;
@@ -1963,7 +1990,7 @@ rule("Lifeline Health Drone")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Lifeline");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Event Player.AbilityActive == False;
 		Has Status(Event Player, Hacked) == False;
@@ -1980,7 +2007,7 @@ rule("Lifeline Health Drone")
 	{
 		Event Player.UsedAbility = True;
 		Event Player.AbilityActive = True;
-		Create Effect(All Players(All Teams), Sphere, Turquoise, Position Of(Event Player), 3, None);
+		Create Effect(All Players(All Teams), Sphere, Color(Turquoise), Position Of(Event Player), 3, None);
 		Event Player.LastEffectPhase = Last Created Entity;
 		Wait(Global.DOCDuration, Ignore Condition);
 		Event Player.AbilityActive = False;
@@ -2002,7 +2029,7 @@ rule("Lifeline Passive Revive")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Lifeline");
-		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Button(Interact)) == True;
 		Event Player.UsingPassive == False;
 		Event Player.PassiveActive == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2020,7 +2047,7 @@ rule("Lifeline Passive Revive")
 		Event Player.UsingPassive = True;
 		Event Player.PassiveActive = True;
 		Event Player.PassiveLocation = Position Of(Event Player);
-		Create Effect(All Players(All Teams), Orb, Turquoise, Event Player.GrappleEndpoint, 3, None);
+		Create Effect(All Players(All Teams), Orb, Color(Turquoise), Event Player.GrappleEndpoint, 3, None);
 		Wait(3, Ignore Condition);
 		Event Player.PassiveActive = False;
 		Destroy Effect(Last Created Entity);
@@ -2065,7 +2092,7 @@ rule("Lifeline Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Lifeline");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2083,10 +2110,11 @@ rule("Lifeline Ult")
 		Event Player.UsingUlt = True;
 		Wait(1, Ignore Condition);
 		Chase Player Variable Over Time(Event Player, RangeChange, 20, 5, Destination and Duration);
-		Create Effect(All Players(All Teams), Sphere, White, Event Player, Event Player.RangeChange, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Sphere, Color(White), Event Player, Event Player.RangeChange,
+			Visible To Position and Radius);
 		Event Player.BombardmentLastCreated = Last Created Entity;
 		Heal(All Players(Team Of(Event Player)), Event Player, 10000);
-		Press Button(Event Player, Primary Fire);
+		Press Button(Event Player, Button(Primary Fire));
 		Wait(5, Ignore Condition);
 		Destroy Effect(Event Player.BombardmentLastCreated);
 		Event Player.RangeChange = 0;
@@ -2117,7 +2145,7 @@ rule("Bangalore Smoke")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Bangalore");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		disabled Event Player.UsedAbility == False;
 		disabled Count Of(Event Player.SmokeLocations) < 3;
 		Event Player.AbilityActive == False;
@@ -2138,19 +2166,19 @@ rule("Bangalore Smoke")
 		Event Player.UsedAbility = True;
 		Damage(Players Within Radius(Position Of(Event Player), 5, Opposite Team Of(Team Of(Event Player)), Off), Event Player, 10);
 		Event Player.SmokeLocations = Eye Position(Event Player);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
-		Create Effect(All Players(All Teams), Cloud, White, Event Player.SmokeLocations, 5, None);
+		Create Effect(All Players(All Teams), Cloud, Color(White), Event Player.SmokeLocations, 5, None);
 		Modify Player Variable(Event Player, SmokeEffects, Append To Array, Last Created Entity);
 		Wait(Global.BangaloreSmokeDuration, Ignore Condition);
 		While(Event Player.SmokeEffects != Empty Array);
@@ -2183,7 +2211,7 @@ rule("Bangalore Smoke Effects")
 	actions
 	{
 		Wait(0.800, Ignore Condition);
-		Play Effect(Players Within Radius(Event Player.SmokeLocations, 5, All Teams, Off), Bad Explosion, White,
+		Play Effect(Players Within Radius(Event Player.SmokeLocations, 5, All Teams, Off), Bad Explosion, Color(White),
 			Event Player.SmokeLocations, 5);
 		Loop;
 	}
@@ -2201,7 +2229,7 @@ rule("Bangalore Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Bangalore");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2218,19 +2246,20 @@ rule("Bangalore Ult")
 	{
 		Event Player.UsingUlt = True;
 		Event Player.BombardmentLocation = Position Of(Event Player);
-		Create Effect(All Players(All Teams), Sphere, Orange, Event Player.BombardmentLocation, 15, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Sphere, Color(Orange), Event Player.BombardmentLocation, 15, Visible To Position and Radius);
 		Event Player.BombardmentLastCreated = Last Created Entity;
 		Destroy Effect(Event Player.BombardmentLastCreated);
 		Wait(3, Ignore Condition);
 		Destroy Effect(Last Created Entity);
-		Create Effect(All Players(All Teams), Light Shaft, Orange, Vector(X Component Of(Event Player.BombardmentLocation), Y Component Of(
-			Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Light Shaft, Color(Orange), Vector(X Component Of(Event Player.BombardmentLocation),
+			Y Component Of(Event Player.BombardmentLocation - 5), Z Component Of(Event Player.BombardmentLocation)), 15,
+			Visible To Position and Radius);
 		Event Player.UltActive = True;
 		Wait(6, Ignore Condition);
 		Event Player.UltActive = False;
 		Destroy Effect(Last Created Entity);
 		Event Player.UsingUlt = False;
-		Press Button(Event Player, Ultimate);
+		Press Button(Event Player, Button(Ultimate));
 		If(Global.UltimateGenerationType == True);
 			Event Player.UltimateGen = 0;
 		End;
@@ -2323,7 +2352,7 @@ rule("Grappling hook")
 
 	conditions
 	{
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Is Alive(Event Player) == True;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -2338,7 +2367,7 @@ rule("Grappling hook")
 	actions
 	{
 		Global.GrappleRange = 25;
-		Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 30);
+		Play Effect(All Players(All Teams), Explosion Sound, Color(White), Event Player, 30);
 		Event Player.GrappleTarget = Ray Cast Hit Player(Eye Position(Event Player), Eye Position(Event Player) + Facing Direction Of(
 			Event Player) * Global.GrappleRange, All Players(All Teams), Filtered Array(All Players(All Teams),
 			!Current Array Element.IsGrappleable), False);
@@ -2352,7 +2381,7 @@ rule("Grappling hook")
 			Event Player.GrappleOffset = Vector(0, 0, 0);
 		End;
 		Event Player.GrappleEndpoint = Eye Position(Event Player) + Down * 0.500;
-		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player, Event Player.GrappleEndpoint, White,
+		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player, Event Player.GrappleEndpoint, Color(White),
 			Visible To Position and Radius);
 		Event Player.GrappleBeam = Last Created Entity;
 		If(!Entity Exists(Event Player.GrappleTarget) && Distance Between(Eye Position(Event Player), Event Player.GrappleTarget)
@@ -2368,12 +2397,12 @@ rule("Grappling hook")
 			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Entity Exists(Event Player.GrappleTarget) ? World Vector Of(
 				Event Player.GrappleOffset, Event Player.GrappleTarget, Rotation And Translation) : Event Player.GrappleTarget, 150,
 				Destination and Rate);
-			disabled Press Button(Event Player, Interact);
+			disabled Press Button(Event Player, Button(Interact));
 			Wait(Distance Between(Event Player, Event Player.GrappleTarget) / 150, Ignore Condition);
-			Play Effect(Event Player, Buff Explosion Sound, White, Event Player, 50);
+			Play Effect(Event Player, Buff Explosion Sound, Color(White), Event Player, 50);
 			Start Accelerating(Event Player, Up, 10, 60, To World, Direction Rate and Max Speed);
-			While(!Is Button Held(Event Player, Interact) && Is Alive(Event Player) && Is In View Angle(Event Player,
-				Event Player.GrappleEndpoint, 90) && !Is Button Held(Event Player, Crouch) && Distance Between(Event Player,
+			While(!Is Button Held(Event Player, Button(Interact)) && Is Alive(Event Player) && Is In View Angle(Event Player,
+				Event Player.GrappleEndpoint, 90) && !Is Button Held(Event Player, Button(Crouch)) && Distance Between(Event Player,
 				Event Player.GrappleEndpoint) <= 35 && !(False && (Is Firing Primary(Event Player) || Is Firing Secondary(Event Player)
 				|| Is Using Ability 1(Event Player) || Is Using Ability 2(Event Player) || Is Using Ultimate(Event Player))) && !(Has Status(
 				Event Player, Hacked) || Has Status(Event Player, Knocked Down) || Has Status(Event Player, Asleep) || Has Status(Event Player,
@@ -2387,7 +2416,7 @@ rule("Grappling hook")
 			Stop Accelerating(Event Player);
 			Chase Player Variable At Rate(Event Player, GrappleEndpoint, Eye Position(Event Player) + Down * 0.500, 150, Destination and Rate);
 			Wait(Distance Between(Event Player, Event Player.GrappleTarget) / 150, Ignore Condition);
-			Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 30);
+			Play Effect(All Players(All Teams), Explosion Sound, Color(White), Event Player, 30);
 			Event Player.AbilityActive = False;
 			Destroy Effect(Event Player.GrappleBeam);
 			Wait(35, Ignore Condition);
@@ -2410,7 +2439,7 @@ disabled rule("Pathfinder Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Pathfinder");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 	}
@@ -2434,12 +2463,12 @@ disabled rule("Pathfinder Ult")
 		Modify Player Variable(Event Player, Zipline, Append To Array, Position Of(Event Player));
 		Modify Player Variable(Event Player, Zipline, Append To Array, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
 			Event Player) + Facing Direction Of(Event Player) * Global.ZiplineMeters, All Players(All Teams), Event Player, True));
-		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player.Zipline[0], Event Player.Zipline[1], White,
+		Create Beam Effect(All Players(All Teams), Grapple Beam, Event Player.Zipline[0], Event Player.Zipline[1], Color(White),
 			Visible To Position and Radius);
 		Event Player.UltActive = True;
 		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
 		disabled Create Beam Effect(All Players(All Teams), Good Beam, Event Player.Zipline[0], Vector(X Component Of(Event Player.Zipline[0]),
-			Y Component Of(Event Player.Zipline[0] + 0.500), Z Component Of(Event Player.Zipline[0])), White,
+			Y Component Of(Event Player.Zipline[0] + 0.500), Z Component Of(Event Player.Zipline[0])), Color(White),
 			Visible To Position and Radius);
 		disabled Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
 		Wait(3, Ignore Condition);
@@ -2462,13 +2491,13 @@ disabled rule("Rule 57")
 
 	conditions
 	{
-		Is Button Held(Event Player, Reload) == True;
+		Is Button Held(Event Player, Button(Reload)) == True;
 	}
 
 	actions
 	{
 		Create Dummy Bot(Hero(Ana), Opposite Team Of(Team Of(Event Player)), -1, Vector(0, 0, 0), Vector(0, 0, 0));
-		Start Holding Button(Players On Hero(Hero(Ana), All Teams), Primary Fire);
+		Start Holding Button(Players On Hero(Hero(Ana), All Teams), Button(Primary Fire));
 	}
 }
 
@@ -2483,7 +2512,7 @@ rule("Pathfinder Zipline")
 
 	conditions
 	{
-		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Button(Interact)) == True;
 		Count Of(Event Player.Zipline) == 2;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -2497,14 +2526,14 @@ rule("Pathfinder Zipline")
 
 	actions
 	{
-		Disallow Button(Event Player, Interact);
+		Disallow Button(Event Player, Button(Interact));
 		If(Distance Between(Position Of(Event Player), Event Player.Zipline[0]) <= 3);
 			Teleport(Event Player, Event Player.Zipline[1]);
 		Else If(Distance Between(Position Of(Event Player), Event Player.Zipline[1]) <= 3);
 			Teleport(Event Player, Event Player.Zipline[0]);
 		End;
 		Wait(1, Ignore Condition);
-		Allow Button(Event Player, Interact);
+		Allow Button(Event Player, Button(Interact));
 	}
 }
 
@@ -2520,7 +2549,7 @@ rule("Pathfinder Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Pathfinder");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2553,12 +2582,13 @@ rule("Pathfinder Ult")
 		Modify Player Variable(Event Player, Zipline, Append To Array, Ray Cast Hit Position(Eye Position(Event Player), Eye Position(
 			Event Player) + Facing Direction Of(Event Player) * Global.ZiplineMeters, All Players(All Teams), Event Player, True));
 		Create Beam Effect(All Players(All Teams), Grapple Beam, Vector(X Component Of(Event Player.Zipline[0]), Y Component Of(
-			Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), Event Player.Zipline[1], White,
+			Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), Event Player.Zipline[1], Color(White),
 			Visible To Position and Radius);
 		Event Player.UltActive = True;
 		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
 		Create Beam Effect(All Players(All Teams), Good Beam, Event Player.Zipline[0], Vector(X Component Of(Event Player.Zipline[0]),
-			Y Component Of(Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), White, Visible To Position and Radius);
+			Y Component Of(Event Player.Zipline[0]) + 2, Z Component Of(Event Player.Zipline[0])), Color(White),
+			Visible To Position and Radius);
 		Modify Player Variable(Event Player, ZiplineBeam, Append To Array, Last Created Entity);
 		Wait(3, Ignore Condition);
 		Event Player.UltActive = False;
@@ -2589,7 +2619,7 @@ rule("Mirage Decoy")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Mirage");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.AbilityActive == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -2608,14 +2638,14 @@ rule("Mirage Decoy")
 		Event Player.Decoy = Last Created Entity;
 		Start Throttle In Direction(Event Player.Decoy, Facing Direction Of(Event Player), 1, To World, Replace existing throttle, None);
 		Set Player Health(Event Player.Decoy, 1);
-		Start Forcing Player Outlines(Event Player.Decoy, All Players(All Teams), False, White);
+		Start Forcing Player Outlines(Event Player.Decoy, All Players(All Teams), False, Color(White), Default);
 		Create In-World Text(All Players(Team Of(Event Player)), Custom String("DECOY"), Event Player.Decoy, 1, Do Not Clip,
-			Visible To Position and String, Turquoise, Default Visibility);
+			Visible To Position and String, Color(Turquoise), Default Visibility);
 		Event Player.Decoy.DecoyInWorldID = Last Text ID;
 		If(Is Crouching(Event Player) == True);
-			Start Holding Button(Event Player.Decoy, Crouch);
+			Start Holding Button(Event Player.Decoy, Button(Crouch));
 		Else If(Is Jumping(Event Player) == True);
-			Start Holding Button(Event Player.Decoy, Jump);
+			Start Holding Button(Event Player.Decoy, Button(Jump));
 		End;
 		Event Player.UsedAbility = True;
 		Event Player.AbilityActive = False;
@@ -2659,7 +2689,7 @@ rule("Mirage Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Mirage");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2695,7 +2725,7 @@ rule("Mirage Ult")
 		Teleport(Event Player, Event Player.UltLocation);
 		Event Player.UltActive = False;
 		Event Player.UsingUlt = False;
-		Press Button(Event Player, Ultimate);
+		Press Button(Event Player, Button(Ultimate));
 		Teleport(Event Player.Decoy, Event Player.Decoy.UltLocation);
 	}
 }
@@ -2719,6 +2749,7 @@ rule("Mirage Passive")
 		Has Status(Event Player, Frozen) == False;
 		Has Status(Event Player, Rooted) == False;
 		Has Status(Event Player, Stunned) == False;
+		Attacker == Null;
 	}
 
 	actions
@@ -2780,7 +2811,7 @@ rule("Octane Stim")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Octane");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 	}
 
@@ -2810,7 +2841,7 @@ rule("Octane Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Octane");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2857,7 +2888,7 @@ rule("Crypto Drone")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Crypto");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -2867,7 +2898,7 @@ rule("Crypto Drone")
 		Has Status(Event Player, Stunned) == False;
 		Is Alive(Event Player) == True;
 		disabled Is On Ground(Event Player) == True;
-		Is Button Held(Event Player, Crouch) == False;
+		Is Button Held(Event Player, Button(Crouch)) == False;
 	}
 
 	actions
@@ -2901,7 +2932,7 @@ rule("Crypto Ult")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Crypto");
-		Is Button Held(Event Player, Ultimate) == True;
+		Is Button Held(Event Player, Button(Ultimate)) == True;
 		Ultimate Charge Percent(Event Player) == 100;
 		Event Player.UsingUlt == False;
 		Has Status(Event Player, Hacked) == False;
@@ -2921,12 +2952,12 @@ rule("Crypto Ult")
 		Event Player.UsingUlt = True;
 		Event Player.UltActive = True;
 		If(Event Player.CryptoCamera == Empty Array);
-			Create Effect(All Players(All Teams), Sphere, White, Position Of(Event Player), 8, Visible To Position and Radius);
+			Create Effect(All Players(All Teams), Sphere, Color(White), Position Of(Event Player), 8, Visible To Position and Radius);
 			Wait(1, Ignore Condition);
 			Destroy Effect(Last Created Entity);
 			Set Status(Players Within Radius(Position Of(Event Player), 8, All Teams, Off), Null, Hacked, 10);
 		Else;
-			Create Effect(All Players(All Teams), Sphere, White, Global.CryptoCamera[0], 8, Visible To Position and Radius);
+			Create Effect(All Players(All Teams), Sphere, Color(White), Global.CryptoCamera[0], 8, Visible To Position and Radius);
 			Wait(1, Ignore Condition);
 			Destroy Effect(Last Created Entity);
 			Set Status(Players Within Radius(Global.CryptoCamera[0], 8, All Teams, Off), Null, Hacked, 10);
@@ -2948,7 +2979,7 @@ rule("Crypto Drone Recall")
 	conditions
 	{
 		Event Player.ChosenLegend == Custom String("Crypto");
-		Is Button Held(Event Player, Ability 2) == True;
+		Is Button Held(Event Player, Button(Ability 2)) == True;
 		Event Player.UsedAbility == False;
 		Has Status(Event Player, Hacked) == False;
 		Has Status(Event Player, Knocked Down) == False;
@@ -2958,7 +2989,7 @@ rule("Crypto Drone Recall")
 		Has Status(Event Player, Stunned) == False;
 		Is Alive(Event Player) == True;
 		Is On Ground(Event Player) == True;
-		Is Button Held(Event Player, Crouch) == True;
+		Is Button Held(Event Player, Button(Crouch)) == True;
 	}
 
 	actions
@@ -2966,5 +2997,140 @@ rule("Crypto Drone Recall")
 		Small Message(Event Player, Custom String("Recalling"));
 		Wait(1, Ignore Condition);
 		Event Player.CryptoCamera = Empty Array;
+	}
+}
+
+rule("CAUSTIC ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Caustic Gas Grenade")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Caustic");
+		Is Button Held(Event Player, Button(Ability 2)) == True;
+		Event Player.UsedAbility == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		disabled Is On Ground(Event Player) == True;
+		Is Button Held(Event Player, Button(Crouch)) == False;
+	}
+
+	actions
+	{
+		Event Player.UsedAbility = True;
+		Event Player.AbilityActive = True;
+		If(Event Player.CausticGasLocation == Empty Array);
+			Event Player.CausticGasLocation = Position Of(Event Player);
+			Small Message(Event Player, Custom String("Gas Trap Placed"));
+			Create Effect(All Players(All Teams), Ring, Color(Green), Event Player.CausticGasLocation, 1, Visible To Position and Radius);
+			Event Player.GasTrapEffect = Last Created Entity;
+		Else;
+			Destroy Effect(Event Player.GasTrapEffect);
+			Event Player.CausticGasLocation = Empty Array;
+			Wait(0.250, Ignore Condition);
+			Event Player.CausticGasLocation = Position Of(Event Player);
+			Small Message(Event Player, Custom String("Gas Trap Placed"));
+			Create Effect(All Players(All Teams), Ring, Color(Green), Event Player.CausticGasLocation, 1, Visible To Position and Radius);
+			Event Player.GasTrapEffect = Last Created Entity;
+		End;
+		Event Player.AbilityActive = False;
+		Wait(Global.CausticAbility, Ignore Condition);
+		Event Player.UsedAbility = False;
+	}
+}
+
+rule("Caustic Ult")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Caustic");
+		Is Button Held(Event Player, Button(Ultimate)) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+	}
+
+	actions
+	{
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+		Event Player.UsingUlt = True;
+		Wait(0.250, Ignore Condition);
+		Event Player.UltActive = True;
+		Event Player.CausticUltimateLocation = Vector(X Component Of(Position Of(Event Player)), Y Component Of(Position Of(Event Player))
+			+ 1, Z Component Of(Position Of(Event Player)));
+		Create Effect(All Players(All Teams), Cloud, Color(Green), Event Player.CausticUltimateLocation, 5,
+			Visible To Position and Radius);
+		Event Player.CausticUltEffect = Last Created Entity;
+		Wait(10, Ignore Condition);
+		Destroy Effect(Event Player.CausticUltEffect);
+		Event Player.UltActive = False;
+		Event Player.UsingUlt = False;
+	}
+}
+
+rule("Caustic Gas Trap Trigger")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.CausticGasLocation != 0;
+		Players Within Radius(Event Player.CausticGasLocation, 2, Opposite Team Of(Team Of(Event Player)), Off) == True;
+	}
+
+	actions
+	{
+		Start Damage Over Time(Players Within Radius(Event Player.CausticGasLocation, 3, Opposite Team Of(Team Of(Event Player)), Off),
+			Event Player, 10, 20);
+		Wait(0.250, Ignore Condition);
+		Event Player.CausticGasLocation = 0;
+	}
+}
+
+rule("Caustic Ult Effect")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
 	}
 }
