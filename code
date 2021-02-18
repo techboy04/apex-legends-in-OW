@@ -96,6 +96,10 @@ variables
 		43: CryptoCamera
 		44: CausticAbility
 		45: CausticUltimate
+		46: GasTrapDamage
+		47: CausticUltDamage
+		48: TrapRadius
+		49: CausticUltRadius
 
 	player:
 		0: ChosenLegend
@@ -934,6 +938,12 @@ rule("Workshop Settings")
 		Global.CausticAbility = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Trap Cooldown"), 25, 0, 100, 0);
 		Global.CausticUltimate = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Grenade Ultimate Generation"), 120,
 			0, 500, 0);
+		Global.TrapRadius = Workshop Setting Integer(Custom String("Caustic"), Custom String("Nox Trap Radius"), 5, 3, 50, 0);
+		Global.GasTrapDamage = Workshop Setting Integer(Custom String("Caustic"), Custom String("Nox Trap Damage Per Second"), 12, 0, 100,
+			0);
+		Global.CausticUltRadius = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Grenade Radius"), 8, 0, 50, 0);
+		Global.CausticUltDamage = Workshop Setting Integer(Custom String("Caustic"), Custom String("Gas Grenade Damage Per Second"), 30, 0,
+			100, 0);
 	}
 }
 
@@ -3091,7 +3101,7 @@ rule("Caustic Ult")
 		Event Player.UltActive = True;
 		Event Player.CausticUltimateLocation = Vector(X Component Of(Position Of(Event Player)), Y Component Of(Position Of(Event Player))
 			+ 1, Z Component Of(Position Of(Event Player)));
-		Create Effect(All Players(All Teams), Cloud, Color(Green), Event Player.CausticUltimateLocation, 5,
+		Create Effect(All Players(All Teams), Cloud, Color(Green), Event Player.CausticUltimateLocation, Global.CausticUltRadius,
 			Visible To Position and Radius);
 		Event Player.CausticUltEffect = Last Created Entity;
 		Wait(10, Ignore Condition);
@@ -3113,13 +3123,13 @@ rule("Caustic Gas Trap Trigger")
 	conditions
 	{
 		Event Player.CausticGasLocation != 0;
-		Players Within Radius(Event Player.CausticGasLocation, 2, Opposite Team Of(Team Of(Event Player)), Off) == True;
+		Players Within Radius(Event Player.CausticGasLocation, Global.TrapRadius, Opposite Team Of(Team Of(Event Player)), Off) == True;
 	}
 
 	actions
 	{
-		Start Damage Over Time(Players Within Radius(Event Player.CausticGasLocation, 3, Opposite Team Of(Team Of(Event Player)), Off),
-			Event Player, 10, 20);
+		Start Damage Over Time(Players Within Radius(Event Player.CausticGasLocation, Global.TrapRadius, Opposite Team Of(Team Of(
+			Event Player)), Off), Event Player, 10, 20);
 		Wait(0.250, Ignore Condition);
 		Event Player.CausticGasLocation = 0;
 	}
@@ -3132,5 +3142,19 @@ rule("Caustic Ult Effect")
 		Ongoing - Each Player;
 		All;
 		All;
+	}
+
+	conditions
+	{
+		Event Player.CausticUltimateLocation != 0;
+		Players Within Radius(Event Player.CausticUltimateLocation, Global.CausticUltRadius, Opposite Team Of(Team Of(Event Player)), Off)
+			== True;
+		Event Player.UltActive == True;
+	}
+
+	actions
+	{
+		Start Damage Over Time(Players Within Radius(Event Player.CausticUltimateLocation, Global.CausticUltRadius, Opposite Team Of(
+			Team Of(Event Player)), Off), Event Player, 10, Global.CausticUltDamage);
 	}
 }
