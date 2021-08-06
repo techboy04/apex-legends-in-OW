@@ -44,6 +44,7 @@ settings
 
 	workshop
 	{
+		Apex Crosshair: Off
 		Legend Per Hero Each Hero is a Legend: Off
 		Replace Ability 1 with Sprint: Off
 	}
@@ -867,7 +868,7 @@ rule("Workshop Settings")
 	{
 		"General Settings"
 		Global.LegendPerHero = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
-			"Legend Per Hero (Each Hero is a Legend)"), True, 0);
+			"Legend Per Hero (Each Hero is a Legend)"), False, 0);
 		Global.UltimateGenerationType = Workshop Setting Toggle(Custom String("General Settings"), Custom String(
 			"Use Custom Ultimate Generation"), True, 0);
 		Global.UltGenRewards = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Use Ult Generation Rewards"),
@@ -876,7 +877,7 @@ rule("Workshop Settings")
 			"Replace Ability 1 with Sprint"), True, 0);
 		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100,
 			0);
-		Global.EnableApexCrosshair = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Apex Crosshair"), True, 0);
+		Global.EnableApexCrosshair = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Apex Crosshair"), False, 0);
 		"Bloodhound Settings"
 		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
 			0, 100, 0);
