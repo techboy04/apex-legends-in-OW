@@ -100,6 +100,7 @@ variables
 		47: CausticUltDamage
 		48: TrapRadius
 		49: CausticUltRadius
+		50: EnableApexCrosshair
 
 	player:
 		0: ChosenLegend
@@ -347,11 +348,11 @@ rule("Loop Legend Status")
 			Event Player.LegendPassiveName = Custom String("Enemy Detector");
 		Else If(Event Player.ChosenLegend == Custom String("Caustic"));
 			Event Player.UltimateIncrease = Global.CausticUltimate;
-			Event Player.AbilityIcon = Ability Icon String(Hero(Hanzo), Button(Ability 1));
-			Event Player.LegendAbilityName = Custom String("Drone");
-			Event Player.LegendUltName = Custom String("EMP");
-			Event Player.UltIcon = Ability Icon String(Hero(Sombra), Button(Ability 2));
-			Event Player.LegendPassiveName = Custom String("Enemy Detector");
+			Event Player.AbilityIcon = Ability Icon String(Hero(Widowmaker), Button(Ability 2));
+			Event Player.LegendAbilityName = Custom String("Nox Trap");
+			Event Player.LegendUltName = Custom String("Gas Grenade");
+			Event Player.UltIcon = Icon String(Poison);
+			Event Player.LegendPassiveName = Custom String("Nox Resistant");
 		End;
 		Loop If Condition Is True;
 	}
@@ -875,6 +876,7 @@ rule("Workshop Settings")
 			"Replace Ability 1 with Sprint"), True, 0);
 		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100,
 			0);
+		Global.EnableApexCrosshair = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Apex Crosshair"), True, 0);
 		"Bloodhound Settings"
 		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
 			0, 100, 0);
@@ -1283,8 +1285,9 @@ rule("HUD")
 		"If Game HUD is disabled"
 		Create HUD Text(Event Player, Null, Custom String(" \r\n \r\n "), Custom String(
 			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n{0}\r\n{1}\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
-			Icon String(Plus), Event Player.Damage > 0 ? Custom String("{0}", Round To Integer(Event Player.Damage, To Nearest))
-			: Custom String("")), Top, 1, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
+			Global.EnableApexCrosshair == True ? Custom String("") : Icon String(Plus), Event Player.Damage > 0 ? Custom String("{0}",
+			Round To Integer(Event Player.Damage, To Nearest)) : Custom String("")), Top, 1, Color(White), Color(White), Color(White),
+			Visible To and String, Default Visibility);
 		Create HUD Text(Event Player, Custom String("{0}", Global.UltimateGenerationType == True ? (
 			Event Player.UltimateGen >= 100 ? Event Player.UltIcon : Custom String("{0}%", Round To Integer(Event Player.UltimateGen,
 			To Nearest))) : (Ultimate Charge Percent(Event Player) >= 100 ? Event Player.UltIcon : Custom String("{0}%",
@@ -3156,5 +3159,28 @@ rule("Caustic Ult Effect")
 	{
 		Start Damage Over Time(Players Within Radius(Event Player.CausticUltimateLocation, Global.CausticUltRadius, Opposite Team Of(
 			Team Of(Event Player)), Off), Event Player, 10, Global.CausticUltDamage);
+	}
+}
+
+rule("Crosshair")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.EnableApexCrosshair == True;
+	}
+
+	actions
+	{
+		Create In-World Text(Event Player, Icon String(Plus), Update Every Frame(Eye Position(Event Player) + 100 * (0 * World Vector Of(
+			Right, Event Player, Rotation) + (0 - 0.150) * Direction From Angles(Horizontal Angle From Direction(Facing Direction Of(
+			Event Player)), Vertical Angle From Direction(Facing Direction Of(Event Player)) - 90) + 3 * Facing Direction Of(
+			Event Player))), 2, Do Not Clip, Visible To Position String and Color, Color(White), Default Visibility);
 	}
 }
