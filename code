@@ -44,9 +44,13 @@ settings
 
 	workshop
 	{
-		Apex Crosshair: Off
-		Legend Per Hero Each Hero is a Legend: Off
+		Apex Crosshair: On
 		Replace Ability 1 with Sprint: Off
+	}
+
+	extensions
+	{
+		Play More Effects
 	}
 }
 
@@ -82,6 +86,7 @@ variables
 		27: LegendsHeroeslist
 		28: UltGenRewards
 		29: ObjectiveAlternative
+		30: BarrierRange
 		31: Team1Camera
 		32: Team2Camera
 		33: MirageAbility
@@ -102,6 +107,8 @@ variables
 		48: TrapRadius
 		49: CausticUltRadius
 		50: EnableApexCrosshair
+		51: OvertimeEnabled
+		52: EnableSuddendeath
 
 	player:
 		0: ChosenLegend
@@ -167,6 +174,7 @@ subroutines
 	0: HUD
 	1: LegendInfoHUD
 	2: PerPlayers
+	3: StartBarrierShrink
 }
 
 rule("Initialize Global")
@@ -196,6 +204,7 @@ rule("Initialize Global")
 			Modify Global Variable(LegendsHeroeslist, Remove From Array By Value, Hero(Moira));
 			Modify Global Variable(LegendsHeroeslist, Remove From Array By Value, Hero(Reinhardt));
 			Modify Global Variable(LegendsHeroeslist, Remove From Array By Value, Hero(Sigma));
+			Global.BarrierRange = 200;
 	}
 }
 
@@ -878,6 +887,8 @@ rule("Workshop Settings")
 		Global.SprintIncrease = Workshop Setting Integer(Custom String("General Settings"), Custom String("Sprint Increase"), 25, 0, 100,
 			0);
 		Global.EnableApexCrosshair = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Apex Crosshair"), False, 0);
+		Global.EnableSuddendeath = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Sudden Death on Overtime"),
+			True, 0);
 		"Bloodhound Settings"
 		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
 			0, 100, 0);
@@ -3179,9 +3190,166 @@ rule("Crosshair")
 
 	actions
 	{
-		Create In-World Text(Event Player, Icon String(Plus), Update Every Frame(Eye Position(Event Player) + 100 * (0 * World Vector Of(
-			Right, Event Player, Rotation) + (0 - 0.150) * Direction From Angles(Horizontal Angle From Direction(Facing Direction Of(
-			Event Player)), Vertical Angle From Direction(Facing Direction Of(Event Player)) - 90) + 3 * Facing Direction Of(
-			Event Player))), 2, Do Not Clip, Visible To Position String and Color, Color(White), Default Visibility);
+		Create In-World Text(Is Communicating Any Emote(Event Player) == False && Is Game In Progress == True ? Event Player : Null,
+			Icon String(Plus), Update Every Frame(Eye Position(Event Player) + 100 * (0 * World Vector Of(Right, Event Player, Rotation)
+			+ (0 - 0.150) * Direction From Angles(Horizontal Angle From Direction(Facing Direction Of(Event Player)),
+			Vertical Angle From Direction(Facing Direction Of(Event Player)) - 90) + 3 * Facing Direction Of(Event Player))), 2,
+			Do Not Clip, Visible To Position String and Color, Color(White), Default Visibility);
+	}
+}
+
+rule("Overtime Barrier")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Match Time == 0;
+		Is Control Mode Point Locked == False;
+		Global.EnableSuddendeath == True;
+	}
+
+	actions
+	{
+		Create Effect(All Players(All Teams), Light Shaft, Color(Red), Objective Position(Objective Index), Global.BarrierRange,
+			Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Light Shaft, Color(Red), Vector(X Component Of(Objective Position(Objective Index)),
+			Y Component Of(Objective Position(Objective Index)) + 25, Z Component Of(Objective Position(Objective Index))),
+			Global.BarrierRange, Visible To Position and Radius);
+		Create Effect(All Players(All Teams), Light Shaft, Color(Red), Vector(X Component Of(Objective Position(Objective Index)),
+			Objective Position(Objective Index) - 25, Z Component Of(Objective Position(Objective Index))), Global.BarrierRange,
+			Visible To Position and Radius);
+		Disable Built-In Game Mode Completion;
+		Disable Built-In Game Mode Respawning(All Players(All Teams));
+		Global.OvertimeEnabled = True;
+		Call Subroutine(StartBarrierShrink);
+	}
+}
+
+rule("Shrink Barrier")
+{
+	event
+	{
+		Subroutine;
+		StartBarrierShrink;
+	}
+
+	actions
+	{
+		Wait(0.150, Ignore Condition);
+		If(Global.BarrierRange > 5);
+			Global.BarrierRange -= 0.250;
+			Loop If Condition Is True;
+	}
+}
+
+rule("Outside Barrier")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		disabled Distance Between(Event Player, Objective Position(Objective Index)) >= Global.BarrierRange;
+		Distance Between(Position Of(Event Player), Objective Position(Objective Index)) >= Global.BarrierRange;
+		Global.OvertimeEnabled == True;
+	}
+
+	actions
+	{
+		Wait(1, Abort When False);
+		Damage(Event Player, Null, 10);
+		Loop If Condition Is True;
+	}
+}
+
+disabled rule("Debug")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Small Message(Event Player, Global.BarrierRange);
+		Loop;
+	}
+}
+
+rule("Overtime Death")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.OvertimeEnabled == True;
+	}
+
+	actions
+	{
+		If(Count Of(Filtered Array(All Dead Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)) == Count Of(
+			Filtered Array(All Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)));
+			Declare Team Victory(Opposite Team Of(Team Of(Event Player)));
+	}
+}
+
+rule("Overtime HUD")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.OvertimeEnabled == True;
+	}
+
+	actions
+	{
+		Create HUD Text(Event Player, Custom String("SUDDEN DEATH - {0} vs {1}", Count Of(Filtered Array(All Living Players(Team Of(
+			Event Player)), Is Dummy Bot(Current Array Element) == False)), Count Of(Filtered Array(All Living Players(Opposite Team Of(
+			Team Of(Event Player))), Is Dummy Bot(Current Array Element) == False))), Custom String(
+			"Eliminate the other team! You only have one life!"), Custom String("{0} WARNING {0} - Ring will be shrinking!", Icon String(
+			Warning)), Right, -1, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
+	}
+}
+
+rule("Rule 96")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Communicating Any Spray(Event Player) == True;
+		Host Player == Event Player;
+	}
+
+	actions
+	{
+		Set Match Time(5);
 	}
 }
