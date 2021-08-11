@@ -3305,7 +3305,10 @@ rule("Overtime Death")
 	{
 		If(Count Of(Filtered Array(All Dead Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)) == Count Of(
 			Filtered Array(All Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)));
-			Declare Team Victory(Opposite Team Of(Team Of(Event Player)));
+			If(Current Game Mode == Game Mode(Control));
+				Declare Round Victory(Opposite Team Of(Team Of(Event Player)));
+			Else;
+				Declare Team Victory(Opposite Team Of(Team Of(Event Player)));
 	}
 }
 
