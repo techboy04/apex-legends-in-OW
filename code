@@ -3,6 +3,7 @@ settings
 	main
 	{
 		Description: "Play Overwatch with Apex Legends abilities! This mode is highly customizable! Whether its ability cooldowns, ultimate generation, and more! Created by: techdude04#1629 Github: https://tinyurl.com/ApexLegendsinOW"
+		Mode Name: "Apex Abilities in Overwatch"
 	}
 
 	lobby
@@ -50,6 +51,10 @@ settings
 
 	extensions
 	{
+		Buff Status Effects
+		Debuff Status Effects
+		Energy Explosion Effects
+		Kinetic Explosion Effects
 		Play More Effects
 	}
 }
@@ -57,7 +62,7 @@ settings
 variables
 {
 	global:
-		0: BloodhoundAbility
+		0: zBloodhoundAbility
 		1: BloodhoundUltimate
 		2: BangaloreAbility
 		3: BangaloreUltimate
@@ -109,6 +114,11 @@ variables
 		50: EnableApexCrosshair
 		51: OvertimeEnabled
 		52: EnableSuddendeath
+		53: Winningteam
+		54: GameEnded
+		55: YoungsmithAbility
+		57: YoungsmithDuration
+		59: KillLeader
 
 	player:
 		0: ChosenLegend
@@ -167,6 +177,7 @@ variables
 		56: CausticUltimateLocation
 		57: GasTrapEffect
 		58: CausticUltEffect
+		59: YoungsmithLunchboxLocation
 }
 
 subroutines
@@ -191,13 +202,15 @@ rule("Initialize Global")
 
 	actions
 	{
+		Global.Winningteam = Null;
 		Global.LegendsList = Array(Custom String("Bloodhound"), Custom String("Gibraltar"), Custom String("Lifeline"), Custom String(
 			"Pathfinder"), Custom String("Wraith"), Custom String("Bangalore"), Custom String("Mirage"), Custom String("Octane"),
 			Custom String("Crypto"), Custom String("Caustic"));
 		Global.Team1Camera = Empty Array;
 		Global.Team2Camera = Empty Array;
 		If(Global.LegendPerHero == True);
-			Global.LegendsHeroeslist = Array(Hero(Bastion), Hero(Mei), Hero(Reaper), Hero(Zarya), Hero(Soldier: 76), Hero(Ana), Hero(McCree));
+			Global.LegendsHeroeslist = Array(Hero(Bastion), Hero(Mei), Hero(Reaper), Hero(Zarya), Hero(Soldier: 76), Hero(Ana), Hero(Cassidy),
+				Hero(Torbjörn));
 		Else;
 			Global.LegendsHeroeslist = All Heroes;
 			Modify Global Variable(LegendsHeroeslist, Remove From Array By Value, Hero(Brigitte));
@@ -247,7 +260,7 @@ rule("Initialize per player")
 		disabled Small Message(Event Player, Custom String("Hold {0} to view {1}'s stats", Input Binding String(Button(Interact)),
 			Event Player.ChosenLegend));
 		If(Event Player.ChosenLegend == Custom String("Bloodhound"));
-			Event Player.AbilityCooldown = Global.BloodhoundAbility;
+			Event Player.AbilityCooldown = Global.zBloodhoundAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Wraith"));
 			Event Player.AbilityCooldown = Global.WraithAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Gibraltar"));
@@ -264,6 +277,8 @@ rule("Initialize per player")
 			Event Player.AbilityCooldown = Global.OctaneAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Crypto"));
 			Event Player.AbilityCooldown = Global.CryptoAbility;
+		Else If(Event Player.ChosenLegend == Custom String("Youngsmith"));
+			Event Player.AbilityCooldown = Global.YoungsmithAbility;
 	}
 }
 
@@ -293,7 +308,7 @@ rule("Loop Legend Status")
 			Event Player.LegendAbilityName = Custom String("Eye of the Alfather");
 			Event Player.LegendUltName = Custom String("Beast of the Hunt");
 			Event Player.LegendPassiveName = Custom String("Tracker");
-			disabled Event Player.AbilityCooldown = Global.BloodhoundAbility;
+			disabled Event Player.AbilityCooldown = Global.zBloodhoundAbility;
 			Event Player.UltIcon = Icon String(Skull);
 		Else If(Event Player.ChosenLegend == Custom String("Wraith"));
 			disabled Event Player.AbilityCooldown = Global.WraithAbility;
@@ -354,8 +369,6 @@ rule("Loop Legend Status")
 			Event Player.AbilityIcon = Ability Icon String(Hero(Hanzo), Button(Ability 1));
 			Event Player.LegendAbilityName = Custom String("Drone");
 			Event Player.LegendUltName = Custom String("EMP");
-			Event Player.UltIcon = Ability Icon String(Hero(Sombra), Button(Ability 2));
-			Event Player.LegendPassiveName = Custom String("Enemy Detector");
 		Else If(Event Player.ChosenLegend == Custom String("Caustic"));
 			Event Player.UltimateIncrease = Global.CausticUltimate;
 			Event Player.AbilityIcon = Ability Icon String(Hero(Widowmaker), Button(Ability 2));
@@ -363,6 +376,15 @@ rule("Loop Legend Status")
 			Event Player.LegendUltName = Custom String("Gas Grenade");
 			Event Player.UltIcon = Icon String(Poison);
 			Event Player.LegendPassiveName = Custom String("Nox Resistant");
+			Event Player.UltIcon = Ability Icon String(Hero(Sombra), Button(Ability 2));
+			Event Player.LegendPassiveName = Custom String("Enemy Detector");
+		Else If(Event Player.ChosenLegend == Custom String("Youngsmith"));
+			Event Player.UltimateIncrease = Global.LifelineUltimate;
+			Event Player.AbilityIcon = Ability Icon String(Hero(Torbjörn), Button(Ability 2));
+			Event Player.LegendAbilityName = Custom String("Armor Box");
+			Event Player.LegendUltName = Custom String("Together Again");
+			Event Player.UltIcon = Ability Icon String(Hero(Mercy), Button(Ultimate));
+			Event Player.LegendPassiveName = Custom String("Armor Regen");
 		End;
 		Loop If Condition Is True;
 	}
@@ -663,7 +685,7 @@ rule("Initialize Player spots - Character Selection")
 	}
 }
 
-rule("Player Joins")
+disabled rule("Player Joins")
 {
 	event
 	{
@@ -890,8 +912,8 @@ rule("Workshop Settings")
 		Global.EnableSuddendeath = Workshop Setting Toggle(Custom String("General Settings"), Custom String("Sudden Death on Overtime"),
 			True, 0);
 		"Bloodhound Settings"
-		Global.BloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"), 25,
-			0, 100, 0);
+		Global.zBloodhoundAbility = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Eye of the Alfather Cooldown"),
+			25, 0, 100, 0);
 		Global.BloodhoundUltimate = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Beast of the Hunt Generation"),
 			180, 0, 500, 0);
 		Global.SonarAngle = Workshop Setting Integer(Custom String("Bloodhound"), Custom String("Sonar Angle"), 45, 10, 360, 0);
@@ -992,9 +1014,10 @@ rule("Loop Legend Heroes if Toggle is on")
 			Event Player.ChosenLegend = Custom String("Wraith");
 		Else If(Hero Of(Event Player) == Hero(Ana));
 			Event Player.ChosenLegend = Custom String("Bangalore");
-			disabled Event Player.ChosenLegend = Custom String("Bloodhound");
-		Else If(Hero Of(Event Player) == Hero(McCree));
+		Else If(Hero Of(Event Player) == Hero(Cassidy));
 			Event Player.ChosenLegend = Custom String("Mirage");
+			disabled Else If(Hero Of(Event Player) == Hero(Torbjörn));
+			disabled Event Player.ChosenLegend = Custom String("Youngsmith");
 		End;
 		Event Player.LastHero = Hero Of(Event Player);
 	}
@@ -1122,7 +1145,7 @@ rule("Cooldown Timer")
 	actions
 	{
 		If(Event Player.ChosenLegend == Custom String("Bloodhound"));
-			Event Player.AbilityCooldown = Global.BloodhoundAbility;
+			Event Player.AbilityCooldown = Global.zBloodhoundAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Wraith"));
 			Event Player.AbilityCooldown = Global.WraithAbility;
 		Else If(Event Player.ChosenLegend == Custom String("Gibraltar"));
@@ -1142,6 +1165,8 @@ rule("Cooldown Timer")
 			disabled Else If(Event Player.ChosenLegend == Custom String("Crypto"));
 			disabled Else If(Event Player.ChosenLegend == Custom String("Revenant"));
 			disabled Else If(Event Player.ChosenLegend == Custom String("Loba"));
+		Else If(Event Player.ChosenLegend == Custom String("Youngsmith"));
+			Event Player.AbilityCooldown = Global.YoungsmithAbility;
 	}
 }
 
@@ -1279,6 +1304,11 @@ rule("HUD")
 				Event Player), Button(Primary Fire))), Null, Left, 5, Color(Red), Color(Red), Color(Red), Visible To and String,
 				Default Visibility);
 		End;
+		Create Progress Bar HUD Text(Event Player, Health Of Type(Event Player, Health) / Max Health Of Type(Event Player, Health) * 100,
+			Null, Left, 7, Color(Red), Color(Red), Visible To Values and Color, Default Visibility);
+		Create Progress Bar HUD Text(Event Player, (Health Of Type(Event Player, Armor) + Health Of Type(Event Player, Shields)) / (
+			Max Health Of Type(Event Player, Armor) + Max Health Of Type(Event Player, Shields)) * 100, Null, Left, 7, Color(Blue), Color(
+			Blue), Visible To Values and Color, Default Visibility);
 		Create HUD Text(Event Player, Global.ReplaceAbility1WithSprint == True ? Custom String("{0} - {1}", Ability Icon String(Hero Of(
 			Event Player), Button(Primary Fire)), Event Player.MaxAmmo == 0 ? Icon String(Question Mark) : Custom String("{0}/{1}",
 			Event Player.Ammo, Event Player.MaxAmmo)) : Custom String("{0} - {1} - {2}", Ability Icon String(Hero Of(Event Player), Button(
@@ -1288,7 +1318,7 @@ rule("HUD")
 			Event Player, Button(Ability 1)) : (Ability Cooldown(Event Player, Button(Ability 1)) == 0 ? Input Binding String(Button(
 			Ability 1)) : Ability Cooldown(Event Player, Button(Ability 1))))), Null, Null, Left, 6, Color(Red), Color(Red), Color(Red),
 			Visible To and String, Default Visibility);
-		Create HUD Text(Event Player, Custom String("{1}\r\n{2}", Null, Event Player.PlayerArmor, Event Player.PlayerHealth), Null, Null,
+		disabled Create HUD Text(Event Player, Custom String("{1}\r\n{2}", Null, Event Player.PlayerArmor, Event Player.PlayerHealth), Null, Null,
 			Left, 7, Color(Red), Color(Red), Color(Red), Visible To and String, Default Visibility);
 		disabled Wait(0.250, Ignore Condition);
 		Create HUD Text(Event Player, Null, Custom String(
@@ -1312,12 +1342,22 @@ rule("HUD")
 			Event Player.UsedAbility == False ? Event Player.AbilityIcon : Event Player.AbilityCooldown)), Custom String(
 			"                                                                                                                             {0}",
 			String("")), Custom String(""), Top, 4, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
-		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}", Event Player.UsedAbility == False ? Input Binding String(
-			Button(Ability 2)) : Icon String(No))), Custom String(
+		Create HUD Text(Event Player, Custom String("{0}", Custom String("{0}", Event Player.UsedAbility == False ? (Input Binding String(
+			Button(Ability 2)) == Null ? Custom String("Unbound") : Input Binding String(Button(Ability 2))) : Icon String(No))),
+			Custom String(
 			"                                                                                                                             {0}",
 			String("")), Custom String(""), Top, 5, Color(White), Color(White), Color(White), Visible To and String, Default Visibility);
 		Wait(5, Ignore Condition);
 		Enable Messages(Event Player);
+		Create HUD Text(Event Player, Custom String("{0}|{1}|{2}", Custom String("{0}{1}",
+			Global.KillLeader == Event Player ? Ability Icon String(Hero(Cassidy), Button(Ultimate)) : Icon String(Skull), Player Stat(
+			Event Player, Final Blows)), Custom String("{0}{1}", Icon String(Bolt), Player Stat(Event Player, Eliminations) - Player Stat(
+			Event Player, Final Blows)), Custom String("{0}{1}", Icon String(Poison), Round To Integer(Player Stat(Event Player,
+			All Damage Dealt), To Nearest))), Null, Null, Right, -1, Color(Red), Color(Red), Color(Red), Visible To Sort Order and String,
+			Default Visibility);
+		Create HUD Text(Global.KillLeader == Event Player ? Event Player : Null, Custom String("{0} You are the kill leader! {0}",
+			Icon String(Exclamation Mark)), Null, Null, Right, -2, Color(Orange), Color(Orange), Color(Orange), Visible To and String,
+			Default Visibility);
 	}
 }
 
@@ -1482,7 +1522,6 @@ rule("Bloodhound Sonar")
 		Has Status(Event Player, Rooted) == False;
 		Has Status(Event Player, Stunned) == False;
 		Is Alive(Event Player) == True;
-		Is On Ground(Event Player) == True;
 	}
 
 	actions
@@ -1504,7 +1543,12 @@ rule("Bloodhound Sonar")
 			Modify Player Variable(Event Player, SonarLocations, Remove From Array By Index, False);
 		End;
 		Event Player.AbilityActive = False;
-		Wait(Global.BloodhoundAbility, Ignore Condition);
+		If(Event Player.UltActive == True);
+			Event Player.AbilityCooldown = 5;
+			Wait(5, Ignore Condition);
+		Else;
+			Wait(Global.zBloodhoundAbility, Ignore Condition);
+		End;
 		Event Player.UsedAbility = False;
 	}
 }
@@ -1608,7 +1652,6 @@ rule("Wraith Phase")
 		Has Status(Event Player, Rooted) == False;
 		Has Status(Event Player, Stunned) == False;
 		Is Alive(Event Player) == True;
-		Is On Ground(Event Player) == True;
 	}
 
 	actions
@@ -2446,7 +2489,7 @@ rule("Grappling hook")
 			Destroy Effect(Event Player.GrappleBeam);
 			Wait(35, Ignore Condition);
 			Skip If(!True, 1);
-			Small Message(Event Player, Custom String("{0} grapple ready", Ability Icon String(Hero(Wrecking Ball), Button(Secondary Fire))));
+			disabled Small Message(Event Player, Custom String("{0} grapple ready", Ability Icon String(Hero(Wrecking Ball), Button(Secondary Fire))));
 			Event Player.UsedAbility = False;
 		End;
 	}
@@ -2667,6 +2710,7 @@ rule("Mirage Decoy")
 		Create In-World Text(All Players(Team Of(Event Player)), Custom String("DECOY"), Event Player.Decoy, 1, Do Not Clip,
 			Visible To Position and String, Color(Turquoise), Default Visibility);
 		Event Player.Decoy.DecoyInWorldID = Last Text ID;
+		Start Forcing Dummy Bot Name(Last Created Entity, Event Player);
 		If(Is Crouching(Event Player) == True);
 			Start Holding Button(Event Player.Decoy, Button(Crouch));
 		Else If(Is Jumping(Event Player) == True);
@@ -2696,6 +2740,7 @@ rule("Decoy Dies")
 
 	actions
 	{
+		Start Forcing Dummy Bot Name(Event Player, Custom String("{0}'s Decoy", Event Player));
 		Destroy In-World Text(Event Player.DecoyInWorldID);
 		Wait(0.250, Ignore Condition);
 		Destroy Dummy Bot(Team Of(Event Player), Slot Of(Event Player));
@@ -2728,30 +2773,33 @@ rule("Mirage Ult")
 
 	actions
 	{
-		If(Global.UltimateGenerationType == True);
-			Event Player.UltimateGen = 0;
-		End;
-		Event Player.UsingUlt = True;
-		Event Player.UltLocation = Position Of(Event Player);
-		Event Player.UltActive = True;
-		Event Player.Decoy.UltLocation = Position Of(Event Player.Decoy);
-		Wait(0.250, Ignore Condition);
-		Teleport(Event Player, Position Of(Event Player.Decoy));
-		Teleport(Event Player.Decoy, Event Player.UltLocation);
-		Set Status(Event Player.Decoy, Null, Frozen, 9999);
-		Set Status(Event Player, Null, Hacked, 9999);
-		Set Status(Event Player, Null, Unkillable, 9999);
-		Set Status(Event Player, Null, Burning, 9999);
-		Wait(15, Ignore Condition);
-		Clear Status(Event Player, Hacked);
-		Clear Status(Event Player, Burning);
-		Clear Status(Event Player, Unkillable);
-		Clear Status(Event Player.Decoy, Frozen);
-		Teleport(Event Player, Event Player.UltLocation);
-		Event Player.UltActive = False;
-		Event Player.UsingUlt = False;
-		Press Button(Event Player, Button(Ultimate));
-		Teleport(Event Player.Decoy, Event Player.Decoy.UltLocation);
+		If(Event Player.Decoy == Null);
+			Small Message(Event Player, Custom String("No Decoy was found!"));
+		Else;
+			If(Global.UltimateGenerationType == True);
+				Event Player.UltimateGen = 0;
+			End;
+			Event Player.UsingUlt = True;
+			Event Player.UltLocation = Position Of(Event Player);
+			Event Player.UltActive = True;
+			Event Player.Decoy.UltLocation = Position Of(Event Player.Decoy);
+			Wait(0.250, Ignore Condition);
+			Teleport(Event Player, Position Of(Event Player.Decoy));
+			Teleport(Event Player.Decoy, Event Player.UltLocation);
+			Set Status(Event Player.Decoy, Null, Frozen, 9999);
+			Set Status(Event Player, Null, Hacked, 9999);
+			Set Status(Event Player, Null, Unkillable, 9999);
+			Set Status(Event Player, Null, Burning, 9999);
+			Wait(15, Ignore Condition);
+			Clear Status(Event Player, Hacked);
+			Clear Status(Event Player, Burning);
+			Clear Status(Event Player, Unkillable);
+			Clear Status(Event Player.Decoy, Frozen);
+			Teleport(Event Player, Event Player.UltLocation);
+			Event Player.UltActive = False;
+			Event Player.UsingUlt = False;
+			Press Button(Event Player, Button(Ultimate));
+			Teleport(Event Player.Decoy, Event Player.Decoy.UltLocation);
 	}
 }
 
@@ -3210,6 +3258,7 @@ rule("Overtime Barrier")
 		Match Time == 0;
 		Is Control Mode Point Locked == False;
 		Global.EnableSuddendeath == True;
+		Current Game Mode != Game Mode(Control);
 	}
 
 	actions
@@ -3291,7 +3340,7 @@ rule("Overtime Death")
 {
 	event
 	{
-		Player Died;
+		Ongoing - Each Player;
 		All;
 		All;
 	}
@@ -3299,16 +3348,36 @@ rule("Overtime Death")
 	conditions
 	{
 		Global.OvertimeEnabled == True;
+		Global.GameEnded == False;
+		Is Game In Progress == True;
 	}
 
 	actions
 	{
-		If(Count Of(Filtered Array(All Dead Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)) == Count Of(
+		Wait(0.250, Ignore Condition);
+		disabled If(Count Of(Filtered Array(All Dead Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)) == Count Of(
 			Filtered Array(All Players(Team Of(Event Player)), Is Dummy Bot(Current Array Element) == False)));
-			If(Current Game Mode == Game Mode(Control));
-				Declare Round Victory(Opposite Team Of(Team Of(Event Player)));
+		If(Number Of Living Players(Filtered Array(All Players(Team 1), Is Dummy Bot(Current Array Element) == False)) == 0);
+			disabled If(Current Game Mode == Game Mode(Control));
+			Destroy All HUD Text;
+			Global.Winningteam = Team 2;
+			Global.GameEnded = True;
+			If(Current Game Mode == Game Mode(Control) || Current Game Mode == Game Mode(Elimination));
+				Declare Round Victory(Global.Winningteam);
 			Else;
-				Declare Team Victory(Opposite Team Of(Team Of(Event Player)));
+				Declare Team Victory(Global.Winningteam);
+			End;
+		Else If(Number Of Living Players(Filtered Array(All Players(Team 2), Is Dummy Bot(Current Array Element) == False)) == 0);
+			Destroy All HUD Text;
+			Global.Winningteam = Team 1;
+			Global.GameEnded = True;
+			If(Current Game Mode == Game Mode(Control) || Current Game Mode == Game Mode(Elimination));
+				Declare Round Victory(Global.Winningteam);
+			Else;
+				Declare Team Victory(Global.Winningteam);
+			End;
+		End;
+		Loop If Condition Is True;
 	}
 }
 
@@ -3354,5 +3423,246 @@ rule("Rule 96")
 	actions
 	{
 		Set Match Time(5);
+	}
+}
+
+disabled rule("Champion Screen")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.Winningteam == Team Of(Event Player);
+		Global.GameEnded == True;
+	}
+
+	actions
+	{
+		"Champion"
+		Create In-World Text(Event Player, Custom String("    ▒▒▒▒▒▒\r\n  ▒▒▒▒▒▒\r\n▒▒▒▒▒▒"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 4, Do Not Clip, Visible To Position and String, Custom Color(0, 0, 0,
+			100), Default Visibility);
+		Create In-World Text(Event Player, Custom String("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\r\n▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 5, Do Not Clip, Visible To Position and String, Custom Color(0, 0, 0,
+			100), Default Visibility);
+		Wait(0.016, Ignore Condition);
+		Create In-World Text(Event Player, Custom String("\\ \\ \\\r\n  \\ \\ \\\r\n    \\ \\ \\"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 5, Do Not Clip, Visible To Position and String, Color(Orange),
+			Default Visibility);
+		Wait(0.016, Ignore Condition);
+		Create HUD Text(Event Player, Null, Null, Custom String(
+			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\nyou are the"), Top, 0, Color(White), Color(Yellow),
+			Color(Yellow), Visible To and String, Default Visibility);
+		Create In-World Text(Event Player, Custom String("CHAMPIONN"), Update Every Frame(Event Player + Facing Direction Of(Event Player)
+			* 15), 10, Do Not Clip, Visible To Position and String, Color(White), Default Visibility);
+		Wait(5, Ignore Condition);
+		Declare Team Victory(Global.Winningteam);
+	}
+}
+
+disabled rule("Gameover Screen")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.Winningteam != Team Of(Event Player);
+		Global.GameEnded == True;
+	}
+
+	actions
+	{
+		"Champion"
+		Create In-World Text(Event Player, Custom String("    ▒▒▒▒▒▒\r\n  ▒▒▒▒▒▒\r\n▒▒▒▒▒▒"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 4, Do Not Clip, Visible To Position and String, Custom Color(0, 0, 0,
+			100), Default Visibility);
+		Create In-World Text(Event Player, Custom String("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\r\n▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 5, Do Not Clip, Visible To Position and String, Custom Color(0, 0, 0,
+			100), Default Visibility);
+		Wait(0.016, Ignore Condition);
+		Create In-World Text(Event Player, Custom String("\\ \\ \\\r\n  \\ \\ \\\r\n    \\ \\ \\"), Update Every Frame(
+			Event Player + Facing Direction Of(Event Player) * 10), 5, Do Not Clip, Visible To Position and String, Color(Red),
+			Default Visibility);
+		Wait(0.016, Ignore Condition);
+		Create HUD Text(Event Player, Null, Null, Custom String(
+			" \r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\nyou are the"), Top, 0, Color(White), Color(Red), Color(
+			Red), Visible To and String, Default Visibility);
+		Create In-World Text(Event Player, Custom String("GAME OVER"), Update Every Frame(Event Player + Facing Direction Of(Event Player)
+			* 15), 10, Do Not Clip, Visible To Position and String, Color(White), Default Visibility);
+	}
+}
+
+disabled rule("Youngsmith ABILITIES")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+disabled rule("Youngsmith Placing Lunchbox")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Youngsmith");
+		Is Button Held(Event Player, Button(Ability 2)) == True;
+		Event Player.UsedAbility == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.UsedAbility = True;
+		Event Player.AbilityActive = True;
+		If(Event Player.YoungsmithLunchboxLocation == Null);
+			Event Player.YoungsmithLunchboxLocation = Position Of(Event Player);
+			disabled Else;
+			disabled Start Camera(Event Player, Event Player.CryptoCamera[0], Event Player.CryptoCamera[1], 0);
+			disabled Wait(3, Ignore Condition);
+			disabled Stop Camera(Event Player);
+		End;
+		Small Message(All Players(Team Of(Event Player)), Custom String("{0}: I placed an armor box! Get some armor!", Hero Icon String(
+			Hero Of(Event Player))));
+		Create Effect(All Players(All Teams), Orb, Color(Yellow), Event Player.YoungsmithLunchboxLocation, 1,
+			Visible To Position and Radius);
+		Wait(Global.YoungsmithDuration, Ignore Condition);
+		Destroy Effect(Last Created Entity);
+		Event Player.AbilityActive = False;
+		Event Player.UsedAbility = False;
+		Small Message(All Players(Team Of(Event Player)), Custom String("{0}: Armor box is no more!", Hero Icon String(Hero Of(
+			Event Player))));
+		Event Player.YoungsmithLunchboxLocation = Null;
+	}
+}
+
+disabled rule("Youngsmith Ability Effects")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.YoungsmithLunchboxLocation != 0;
+		Players Within Radius(Event Player.YoungsmithLunchboxLocation, 5, Team Of(Event Player), Off) == True;
+	}
+
+	actions
+	{
+		Add Health Pool To Player(Players Within Radius(Event Player.YoungsmithLunchboxLocation, 5, Team Of(Event Player), Off), Armor, 25,
+			False, True);
+		Wait(5, Abort When False);
+		Loop If Condition Is True;
+	}
+}
+
+disabled rule("Youngsmith Armor Box Effects")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.ChosenLegend == Custom String("Youngsmith");
+		Is Button Held(Event Player, Button(Ultimate)) == True;
+		Ultimate Charge Percent(Event Player) == 100;
+		Event Player.UsingUlt == False;
+		Has Status(Event Player, Hacked) == False;
+		Has Status(Event Player, Knocked Down) == False;
+		Has Status(Event Player, Asleep) == False;
+		Has Status(Event Player, Frozen) == False;
+		Has Status(Event Player, Rooted) == False;
+		Has Status(Event Player, Stunned) == False;
+		Is Alive(Event Player) == True;
+		Is On Ground(Event Player) == True;
+	}
+
+	actions
+	{
+		If(Global.UltimateGenerationType == True);
+			Event Player.UltimateGen = 0;
+		End;
+		Big Message(All Dead Players(Team Of(Event Player)), Custom String("{0}: You deserve a second chance!", Hero Icon String(Hero Of(
+			Event Player))));
+		Event Player.UsingUlt = True;
+		Event Player.UltActive = True;
+		Resurrect(All Dead Players(Team Of(Event Player)));
+		Add Health Pool To Player(All Players(Team Of(Event Player)), Armor, 100, False, True);
+		Big Message(All Players(Team Of(Event Player)), Custom String("{0}: Have some extra armor to help you out!", Hero Icon String(
+			Hero Of(Event Player))));
+	}
+}
+
+rule("Kill Leader")
+{
+	event
+	{
+		Player Dealt Final Blow;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.KillLeader != Event Player;
+	}
+
+	actions
+	{
+		If(Player Stat(Event Player, Final Blows) > Player Stat(Global.KillLeader, Final Blows));
+			Big Message(Global.KillLeader, Custom String("You lost your Kill Leader to {0}", Event Player));
+			Global.KillLeader = Event Player;
+			Big Message(Event Player, Custom String("You are the new kill leader!"));
+	}
+}
+
+rule("Announce Ultimate when ready")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Ultimate Charge Percent(Event Player) == 100;
+	}
+
+	actions
+	{
+		Communicate(Event Player, Ultimate Status);
 	}
 }
